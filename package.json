@@ -1,0 +1,41 @@
+{
+  "name": "ccf-for-zotero",
+  "type": "module",
+  "version": "0.1.9",
+  "description": "Offline CCF venue ranking badges for Zotero.",
+  "config": {
+    "addonName": "CCF for Zotero",
+    "addonID": "ccf-for-zotero@ccf-for-zotero.local",
+    "addonRef": "ccf-for-zotero",
+    "addonInstance": "CCFForZotero",
+    "prefsPrefix": "extensions.ccf-for-zotero"
+  },
+  "author": "nyaru177",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nyaru177/ccf-for-zotero.git"
+  },
+  "homepage": "https://github.com/nyaru177/ccf-for-zotero#readme",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "zotero-plugin build && tsc --noEmit",
+    "test": "tsx --test tests/matcher.test.ts",
+    "check": "npm run test && npm run build",
+    "start": "zotero-plugin serve"
+  },
+  "dependencies": {
+    "zotero-plugin-toolkit": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.20.6",
+    "typescript": "^6.0.3",
+    "zotero-plugin-scaffold": "^0.8.8",
+    "zotero-types": "^4.1.3"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "endOfLine": "lf"
+  }
+}
