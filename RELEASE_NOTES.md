@@ -43,6 +43,8 @@
 2. Zotero -> `Tools` -> `Add-ons` -> 齿轮图标 -> `Install Add-on From File...`。
 3. 选择 `.xpi` 文件并重启 Zotero。
 
+建议普通用户下载 `ccf-for-zotero-0.1.9-zotero10.xpi`；`ccf-for-zotero.xpi` 主要供自动更新清单引用。
+
 ### 校验
 
 本版本发布前本地验证：

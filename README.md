@@ -69,6 +69,12 @@ npm run check
 
 构建产物位于 `.scaffold/build/`。
 
+发布 release 时建议同时上传：
+
+- `ccf-for-zotero-0.1.9-zotero10.xpi`：给用户手动下载安装。
+- `ccf-for-zotero.xpi`：供 `update.json` 自动更新引用。
+- `update.json`：Zotero 自动更新清单。
+
 ## 隐私与安全
 
 - 默认不联网。

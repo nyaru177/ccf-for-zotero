@@ -8,7 +8,7 @@ export default defineConfig({
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
   updateURL:
-    "https://github.com/nyaru177/ccf-for-zotero/releases/download/release/update.json",
+    "https://github.com/nyaru177/ccf-for-zotero/releases/latest/download/update.json",
   xpiDownloadLink:
     "https://github.com/nyaru177/ccf-for-zotero/releases/download/v{{version}}/{{xpiName}}.xpi",
 
