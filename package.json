@@ -5,7 +5,7 @@
   "description": "Offline CCF venue ranking badges for Zotero.",
   "config": {
     "addonName": "CCF for Zotero",
-    "addonID": "ccf-for-zotero@ccf-for-zotero.local",
+    "addonID": "ccf-for-zotero@nyaru177.github.io",
     "addonRef": "ccf-for-zotero",
     "addonInstance": "CCFForZotero",
     "prefsPrefix": "extensions.ccf-for-zotero"
