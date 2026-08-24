@@ -5,9 +5,9 @@ import {
   venueToManualResult,
 } from "./manualSelector";
 import { formatItemDiagnostics } from "./diagnostics";
-import { getDisplayState, refreshItemsRank } from "./rankService";
+import { filterItemsByDisplayStatus, refreshItemsRank } from "./rankService";
 import { clearItemStates, ignoreItems, saveManualMatches } from "./storage";
-import { CCFKind, CCFRank, CCFVenue, MatchResult } from "./types";
+import { CCFKind, CCFRank, CCFVenue, ItemRankState, MatchResult } from "./types";
 import { resolveVenueCandidates } from "./venueResolver";
 
 const REFRESH_YIELD_EVERY = 10;
@@ -20,6 +20,11 @@ interface ActiveRefreshJob {
   id: number;
   cancelRequested: boolean;
   progressWindow?: ReturnType<typeof createProgressWindow>;
+}
+
+interface RefreshItemsWithProgressOptions {
+  filterStatuses?: Array<ItemRankState["status"]>;
+  noMatchedItemsMessage?: string;
 }
 
 let nextRefreshJobID = 1;
@@ -46,23 +51,24 @@ const text = {
   ignoredDone: (count: number) => `已忽略 ${count} 个条目。`,
   restoredDone: (count: number) => `已恢复 ${count} 个条目的自动匹配。`,
   refreshTitle: "CCF 分级刷新",
-  refreshStart: (count: number) => `准备刷新 ${count} 个条目...`,
+  refreshStart: (count: number) => `准备刷新 ${count} 个条目`,
+  refreshScan: (done: number, total: number, title: string) =>
+    `筛选 ${done}/${total}：${title}`,
   refreshProgress: (done: number, total: number, title: string) =>
     `正在刷新 ${done}/${total}：${title}`,
-  refreshCancelHint:
-    "如需停止，请用顶部 Tools/工具 菜单或右键菜单：CCF 分级助手 -> 取消当前 CCF 刷新。已完成的结果会保留。",
-  refreshCancelRequested: "正在取消刷新，将保存已完成的结果...",
+  refreshCancelHint: "可在 Tools/工具 菜单取消，已完成保留。",
+  refreshCancelRequested: "正在取消，将保存已完成结果...",
   refreshDone: (
     count: number,
     summary: { matched: number; none: number; preprint: number; unknown: number },
   ) =>
-    `完成：${count} 个条目；匹配 ${summary.matched}，CCF None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
+    `完成 ${count} 条：匹配 ${summary.matched}，None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
   refreshCancelled: (
     done: number,
     total: number,
     summary: { matched: number; none: number; preprint: number; unknown: number },
   ) =>
-    `已取消：完成 ${done}/${total}；匹配 ${summary.matched}，CCF None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
+    `已取消 ${done}/${total}：匹配 ${summary.matched}，None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
   refreshFailed: "刷新失败，请查看 Zotero 错误日志。",
 };
 
@@ -123,7 +129,7 @@ function delay(win: Window, ms = 0) {
   });
 }
 
-function truncate(value: string, maxLength = 48) {
+function truncate(value: string, maxLength = 36) {
   const chars = [...value.trim()];
   if (chars.length <= maxLength) return value.trim();
   return `${chars.slice(0, maxLength - 1).join("")}…`;
@@ -152,7 +158,6 @@ function createProgressWindow(win: Window, count: number) {
         text: text.refreshStart(count),
         progress: 0,
       })
-      .addDescription(text.refreshCancelHint)
       .show(-1);
   } catch (error) {
     ztoolkit.log("Could not open CCF refresh progress window", error);
@@ -170,7 +175,11 @@ function countResult(
   if (result.status === "unknown") summary.unknown += 1;
 }
 
-async function refreshItemsWithProgress(win: Window, items: Zotero.Item[]) {
+async function refreshItemsWithProgress(
+  win: Window,
+  items: Zotero.Item[],
+  options: RefreshItemsWithProgressOptions = {},
+) {
   if (items.length === 0) {
     alertUser(win, text.noSelection);
     return;
@@ -190,7 +199,78 @@ async function refreshItemsWithProgress(win: Window, items: Zotero.Item[]) {
   const summary = { matched: 0, none: 0, preprint: 0, unknown: 0 };
 
   try {
-    const result = await refreshItemsRank(items, {
+    let itemsToRefresh = items;
+
+    if (options.filterStatuses?.length) {
+      const filterResult = await filterItemsByDisplayStatus(
+        items,
+        options.filterStatuses,
+        {
+          shouldCancel: () => job.cancelRequested,
+          onProgress: async (done, total, item) => {
+            if (
+              progressWindow &&
+              (done === 1 ||
+                done === total ||
+                done % PROGRESS_UPDATE_EVERY === 0)
+            ) {
+              progressWindow.changeLine({
+                text: job.cancelRequested
+                  ? text.refreshCancelRequested
+                  : text.refreshScan(done, total, getItemTitle(item)),
+                progress: Math.round((done / total) * 100),
+              });
+            }
+
+            if (done % REFRESH_YIELD_EVERY === 0) {
+              await delay(win, 0);
+            }
+          },
+        },
+      );
+
+      if (filterResult.cancelled) {
+        if (progressWindow) {
+          progressWindow
+            .changeLine({
+              text: text.refreshCancelled(
+                filterResult.processed,
+                filterResult.total,
+                summary,
+              ),
+              progress: Math.round(
+                (filterResult.processed / filterResult.total) * 100,
+              ),
+            })
+            .startCloseTimer(4000);
+        }
+        return;
+      }
+
+      itemsToRefresh = filterResult.items;
+      if (itemsToRefresh.length === 0) {
+        const message = options.noMatchedItemsMessage || text.noSelection;
+        if (progressWindow) {
+          progressWindow
+            .changeLine({
+              text: message,
+              progress: 100,
+            })
+            .startCloseTimer(3000);
+        } else {
+          alertUser(win, message);
+        }
+        return;
+      }
+
+      progressWindow?.changeLine({
+        text: `${text.refreshStart(itemsToRefresh.length)}（${text.refreshCancelHint}）`,
+        progress: 0,
+      });
+      await delay(win, 0);
+    }
+
+    const result = await refreshItemsRank(itemsToRefresh, {
       saveBatchSize: REFRESH_SAVE_BATCH_SIZE,
       shouldCancel: () => job.cancelRequested,
       onProgress: async (done, total, item, matchResult) => {
@@ -280,22 +360,10 @@ async function refreshSelectedItems(win: Window) {
 }
 
 async function refreshSelectedUnknownNoneItems(win: Window) {
-  const items = getSelectedRegularItems().filter((item) => {
-    try {
-      const state = getDisplayState(item);
-      return state.status === "unknown" || state.status === "none";
-    } catch (error) {
-      ztoolkit.log("Could not filter CCF Unknown/None item", error);
-      return false;
-    }
+  await refreshItemsWithProgress(win, getSelectedRegularItems(), {
+    filterStatuses: ["unknown", "none"],
+    noMatchedItemsMessage: text.noUnknownNoneSelection,
   });
-
-  if (items.length === 0) {
-    alertUser(win, text.noUnknownNoneSelection);
-    return;
-  }
-
-  await refreshItemsWithProgress(win, items);
 }
 
 async function clearSelectedCacheAndRefresh(win: Window) {

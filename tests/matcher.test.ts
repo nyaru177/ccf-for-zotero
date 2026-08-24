@@ -13,7 +13,11 @@ import {
   venueToManualResult,
 } from "../src/modules/manualSelector";
 import { formatNonCcfVenueText } from "../src/modules/nonCcfAliases";
-import { getDisplayState, refreshItemsRank } from "../src/modules/rankService";
+import {
+  filterItemsByDisplayStatus,
+  getDisplayState,
+  refreshItemsRank,
+} from "../src/modules/rankService";
 import { clearStorageMemoryCache, getStoredState } from "../src/modules/storage";
 import { resolveVenueCandidates } from "../src/modules/venueResolver";
 
@@ -751,6 +755,57 @@ describe("local CCF matcher", () => {
         getStoredState({ libraryID: 1, id: 202 } as Zotero.Item),
         undefined,
       );
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
+  it("filters Unknown and CCF None items with cancellation support", async () => {
+    let cancelled = false;
+    let progressCalls = 0;
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return "";
+        },
+        set() {
+          throw new Error("filtering should not save prefs");
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      const result = await filterItemsByDisplayStatus(
+        [
+          makeItem({ proceedingsTitle: "ACL" }, "conferencePaper", 301),
+          makeItem(
+            { publicationTitle: "Journal of Extremely Local Experiments" },
+            "journalArticle",
+            302,
+          ),
+          makeItem({}, "conferencePaper", 303),
+          makeItem({ proceedingsTitle: "EMNLP" }, "conferencePaper", 304),
+        ],
+        ["unknown", "none"],
+        {
+          shouldCancel: () => cancelled,
+          onProgress(done) {
+            progressCalls += 1;
+            if (done === 3) cancelled = true;
+          },
+        },
+      );
+
+      assert.equal(result.cancelled, true);
+      assert.equal(result.processed, 3);
+      assert.deepEqual(
+        result.items.map((item) => item.id),
+        [302, 303],
+      );
+      assert.equal(progressCalls, 3);
     } finally {
       clearStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;

@@ -26,6 +26,23 @@ export interface RefreshItemsRankResult {
   cancelled: boolean;
 }
 
+export interface FilterItemsByDisplayStatusOptions {
+  onProgress?: (
+    done: number,
+    total: number,
+    item: Zotero.Item,
+    state: ItemRankState,
+  ) => void | Promise<void>;
+  shouldCancel?: () => boolean;
+}
+
+export interface FilterItemsByDisplayStatusResult {
+  items: Zotero.Item[];
+  processed: number;
+  total: number;
+  cancelled: boolean;
+}
+
 export function resolveItemRank(item: Zotero.Item): MatchResult {
   const resolution = resolveVenueCandidates(item);
   return matchCandidates(resolution.candidates, resolution.isPreprint);
@@ -62,6 +79,37 @@ export function refreshItemRank(item: Zotero.Item) {
   const result = resolveItemRank(item);
   saveMatchResult(item, result);
   return result;
+}
+
+export async function filterItemsByDisplayStatus(
+  items: Zotero.Item[],
+  statuses: Array<ItemRankState["status"]>,
+  options: FilterItemsByDisplayStatusOptions = {},
+): Promise<FilterItemsByDisplayStatusResult> {
+  const statusSet = new Set(statuses);
+  const matchedItems: Zotero.Item[] = [];
+  const total = items.length;
+  let processed = 0;
+
+  for (let index = 0; index < items.length; index++) {
+    if (options.shouldCancel?.()) break;
+
+    const item = items[index];
+    const state = getDisplayState(item);
+    processed = index + 1;
+    if (statusSet.has(state.status)) {
+      matchedItems.push(item);
+    }
+
+    await options.onProgress?.(processed, total, item, state);
+  }
+
+  return {
+    items: matchedItems,
+    processed,
+    total,
+    cancelled: processed < total || Boolean(options.shouldCancel?.()),
+  };
 }
 
 export async function refreshItemsRank(

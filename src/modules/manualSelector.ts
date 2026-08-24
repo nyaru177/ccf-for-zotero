@@ -235,21 +235,28 @@ export function groupVenuesForBrowse() {
   return groups;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+const XHTML_NS = "http://www.w3.org/1999/xhtml";
+
+function createHtmlElement<T extends HTMLElement>(
+  doc: Document,
+  tagName: string,
+): T {
+  return doc.createElementNS(XHTML_NS, tagName) as T;
 }
 
-function buildCategoryOptions() {
-  return getCCFCategories()
-    .map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
-    .join("");
+function addSelectOption(
+  doc: Document,
+  select: HTMLSelectElement,
+  value: string,
+  label: string,
+) {
+  const option = createHtmlElement<HTMLOptionElement>(doc, "option");
+  option.value = value;
+  option.textContent = label;
+  select.appendChild(option);
 }
 
-function buildSelectorHtml(initialQuery: string) {
+function buildSelectorHtml() {
   return `
     <style>
       .ccf-selector {
@@ -360,32 +367,7 @@ function buildSelectorHtml(initialQuery: string) {
         font-size: 12px;
       }
     </style>
-    <div class="ccf-selector">
-      <input id="ccf-selector-query" value="${escapeHtml(initialQuery)}" placeholder="搜索 CCF 目录：输入简称、全称、分类或英文领域词，例如 ACL、ACM MM、theory、人工智能" />
-      <div class="ccf-search-help">
-        支持模糊搜索；建议优先用上方搜索框，下面的分类浏览只作为备用。
-      </div>
-      <div class="ccf-filter-row">
-        <select id="ccf-selector-kind">
-          <option value="">全部类型</option>
-          <option value="conference">会议</option>
-          <option value="journal">期刊</option>
-        </select>
-        <select id="ccf-selector-rank">
-          <option value="">全部等级</option>
-          <option value="A">CCF A</option>
-          <option value="B">CCF B</option>
-          <option value="C">CCF C</option>
-        </select>
-        <select id="ccf-selector-category">
-          <option value="">全部分类</option>
-          ${buildCategoryOptions()}
-        </select>
-      </div>
-      <div id="ccf-selector-meta" class="ccf-result-meta"></div>
-      <div id="ccf-selector-list" class="ccf-result-list"></div>
-      <div id="ccf-selector-status" class="ccf-dialog-status"></div>
-    </div>
+    <div id="ccf-selector-root" class="ccf-selector"></div>
   `;
 }
 
@@ -408,24 +390,67 @@ export async function openManualVenueSelector(
 
   dialogData.loadCallback = () => {
     const doc = dialog.window.document;
-    const queryInput = doc.getElementById(
-      "ccf-selector-query",
-    ) as HTMLInputElement | null;
-    const kindSelect = doc.getElementById(
-      "ccf-selector-kind",
-    ) as HTMLSelectElement | null;
-    const rankSelect = doc.getElementById(
-      "ccf-selector-rank",
-    ) as HTMLSelectElement | null;
-    const categorySelect = doc.getElementById(
-      "ccf-selector-category",
-    ) as HTMLSelectElement | null;
-    const meta = doc.getElementById("ccf-selector-meta");
-    const list = doc.getElementById("ccf-selector-list");
-    const status = doc.getElementById("ccf-selector-status");
-    if (!queryInput || !kindSelect || !rankSelect || !categorySelect || !list) {
+    const root = doc.getElementById("ccf-selector-root") as HTMLElement | null;
+    if (!root) {
       return;
     }
+
+    root.textContent = "";
+
+    const queryInput = createHtmlElement<HTMLInputElement>(doc, "input");
+    queryInput.id = "ccf-selector-query";
+    queryInput.type = "search";
+    queryInput.value = initialQuery;
+    queryInput.placeholder =
+      "搜索 CCF 目录：输入简称、全称、分类或英文领域词，例如 ACL、ACM MM、theory";
+    root.appendChild(queryInput);
+
+    const help = createHtmlElement<HTMLDivElement>(doc, "div");
+    help.className = "ccf-search-help";
+    help.textContent = "支持简称、全称、分类和英文领域词；下方分类筛选作为备用。";
+    root.appendChild(help);
+
+    const filterRow = createHtmlElement<HTMLDivElement>(doc, "div");
+    filterRow.className = "ccf-filter-row";
+    root.appendChild(filterRow);
+
+    const kindSelect = createHtmlElement<HTMLSelectElement>(doc, "select");
+    kindSelect.id = "ccf-selector-kind";
+    addSelectOption(doc, kindSelect, "", "全部类型");
+    addSelectOption(doc, kindSelect, "conference", "会议");
+    addSelectOption(doc, kindSelect, "journal", "期刊");
+    filterRow.appendChild(kindSelect);
+
+    const rankSelect = createHtmlElement<HTMLSelectElement>(doc, "select");
+    rankSelect.id = "ccf-selector-rank";
+    addSelectOption(doc, rankSelect, "", "全部等级");
+    addSelectOption(doc, rankSelect, "A", "CCF A");
+    addSelectOption(doc, rankSelect, "B", "CCF B");
+    addSelectOption(doc, rankSelect, "C", "CCF C");
+    filterRow.appendChild(rankSelect);
+
+    const categorySelect = createHtmlElement<HTMLSelectElement>(doc, "select");
+    categorySelect.id = "ccf-selector-category";
+    addSelectOption(doc, categorySelect, "", "全部分类");
+    for (const category of getCCFCategories()) {
+      addSelectOption(doc, categorySelect, category, category);
+    }
+    filterRow.appendChild(categorySelect);
+
+    const meta = createHtmlElement<HTMLDivElement>(doc, "div");
+    meta.id = "ccf-selector-meta";
+    meta.className = "ccf-result-meta";
+    root.appendChild(meta);
+
+    const list = createHtmlElement<HTMLDivElement>(doc, "div");
+    list.id = "ccf-selector-list";
+    list.className = "ccf-result-list";
+    root.appendChild(list);
+
+    const status = createHtmlElement<HTMLDivElement>(doc, "div");
+    status.id = "ccf-selector-status";
+    status.className = "ccf-dialog-status";
+    root.appendChild(status);
 
     const render = () => {
       const filters: VenueSearchFilters = {
@@ -451,7 +476,7 @@ export async function openManualVenueSelector(
 
       for (const option of currentOptions) {
         const venue = option.venue;
-        const button = doc.createElement("button");
+        const button = createHtmlElement<HTMLButtonElement>(doc, "button");
         button.type = "button";
         button.className =
           "ccf-option" +
@@ -460,30 +485,30 @@ export async function openManualVenueSelector(
             : "");
         button.title = venue.fullName;
 
-        const line = doc.createElement("div");
+        const line = createHtmlElement<HTMLDivElement>(doc, "div");
         line.className = "ccf-option-line";
 
-        const rank = doc.createElement("span");
+        const rank = createHtmlElement<HTMLSpanElement>(doc, "span");
         rank.className = `ccf-rank-pill ccf-rank-${venue.rank.toLowerCase()}`;
         rank.textContent = `CCF ${venue.rank}`;
         line.appendChild(rank);
 
-        const type = doc.createElement("span");
+        const type = createHtmlElement<HTMLSpanElement>(doc, "span");
         type.className = "ccf-venue-meta";
         type.textContent = kindLabels[venue.kind];
         line.appendChild(type);
 
-        const category = doc.createElement("span");
+        const category = createHtmlElement<HTMLSpanElement>(doc, "span");
         category.className = "ccf-venue-meta";
         category.textContent = venue.category;
         line.appendChild(category);
 
-        const abbr = doc.createElement("span");
+        const abbr = createHtmlElement<HTMLSpanElement>(doc, "span");
         abbr.className = "ccf-venue-abbr";
         abbr.textContent = venue.abbr;
         line.appendChild(abbr);
 
-        const fullName = doc.createElement("span");
+        const fullName = createHtmlElement<HTMLSpanElement>(doc, "span");
         fullName.className = "ccf-venue-full";
         fullName.textContent = venue.fullName;
         const aliasPreview = (venue.aliases || [])
@@ -519,8 +544,10 @@ export async function openManualVenueSelector(
       }
     });
     render();
-    queryInput.focus();
-    queryInput.select();
+    dialog.window.setTimeout(() => {
+      queryInput.focus();
+      queryInput.select();
+    }, 0);
   };
 
   dialog
@@ -528,7 +555,7 @@ export async function openManualVenueSelector(
     .addCell(0, 0, {
       tag: "div",
       namespace: "html",
-      properties: { innerHTML: buildSelectorHtml(initialQuery) },
+      properties: { innerHTML: buildSelectorHtml() },
     })
     .addButton("取消", "cancel")
     .addButton("应用到所选条目", "apply", {
