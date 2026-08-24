@@ -4,7 +4,8 @@ import {
   openManualVenueSelector,
   venueToManualResult,
 } from "./manualSelector";
-import { refreshItemsRank } from "./rankService";
+import { formatItemDiagnostics } from "./diagnostics";
+import { getDisplayState, refreshItemsRank } from "./rankService";
 import { clearItemStates, ignoreItems, saveManualMatches } from "./storage";
 import { CCFKind, CCFRank, CCFVenue, MatchResult } from "./types";
 import { resolveVenueCandidates } from "./venueResolver";
@@ -15,11 +16,15 @@ const PROGRESS_UPDATE_EVERY = 50;
 const text = {
   root: "CCF 分级助手",
   refresh: "刷新所选条目的 CCF 分级",
+  refreshUnknownNone: "只刷新 Unknown / CCF None",
+  clearAndRefresh: "清除缓存并重新识别所选条目",
+  diagnostics: "显示识别诊断",
   manual: "设置 CCF 来源...",
   browse: "按分类浏览设置",
   ignore: "忽略所选条目",
   restore: "恢复自动匹配",
   noSelection: "没有选中可刷新的普通条目。",
+  noUnknownNoneSelection: "所选条目中没有 Unknown 或 CCF None。",
   manualDone: (count: number, venue: CCFVenue) =>
     `已为 ${count} 个条目设置为 CCF ${venue.rank} | ${venue.abbr}。`,
   ignoredDone: (count: number) => `已忽略 ${count} 个条目。`,
@@ -113,8 +118,7 @@ function countResult(
   if (result.status === "unknown") summary.unknown += 1;
 }
 
-async function refreshSelectedItems(win: Window) {
-  const items = getSelectedRegularItems();
+async function refreshItemsWithProgress(win: Window, items: Zotero.Item[]) {
   if (items.length === 0) {
     alertUser(win, text.noSelection);
     return;
@@ -163,6 +167,50 @@ async function refreshSelectedItems(win: Window) {
       alertUser(win, text.refreshFailed);
     }
   }
+}
+
+async function refreshSelectedItems(win: Window) {
+  await refreshItemsWithProgress(win, getSelectedRegularItems());
+}
+
+async function refreshSelectedUnknownNoneItems(win: Window) {
+  const items = getSelectedRegularItems().filter((item) => {
+    try {
+      const state = getDisplayState(item);
+      return state.status === "unknown" || state.status === "none";
+    } catch (error) {
+      ztoolkit.log("Could not filter CCF Unknown/None item", error);
+      return false;
+    }
+  });
+
+  if (items.length === 0) {
+    alertUser(win, text.noUnknownNoneSelection);
+    return;
+  }
+
+  await refreshItemsWithProgress(win, items);
+}
+
+async function clearSelectedCacheAndRefresh(win: Window) {
+  const items = getSelectedRegularItems();
+  if (items.length === 0) {
+    alertUser(win, text.noSelection);
+    return;
+  }
+
+  clearItemStates(items);
+  await refreshItemsWithProgress(win, items);
+}
+
+function showSelectedDiagnostics(win: Window) {
+  const item = getSelectedRegularItems()[0];
+  if (!item) {
+    alertUser(win, text.noSelection);
+    return;
+  }
+
+  alertUser(win, formatItemDiagnostics(item));
 }
 
 function setManualVenue(win: Window, items: Zotero.Item[], venue: CCFVenue) {
@@ -293,6 +341,29 @@ export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
   refresh.setAttribute("label", text.refresh);
   refresh.addEventListener("command", () => void refreshSelectedItems(win));
   popup.appendChild(refresh);
+
+  const refreshUnknownNone = doc.createXULElement("menuitem");
+  refreshUnknownNone.setAttribute("label", text.refreshUnknownNone);
+  refreshUnknownNone.addEventListener(
+    "command",
+    () => void refreshSelectedUnknownNoneItems(win),
+  );
+  popup.appendChild(refreshUnknownNone);
+
+  const clearAndRefresh = doc.createXULElement("menuitem");
+  clearAndRefresh.setAttribute("label", text.clearAndRefresh);
+  clearAndRefresh.addEventListener(
+    "command",
+    () => void clearSelectedCacheAndRefresh(win),
+  );
+  popup.appendChild(clearAndRefresh);
+
+  const diagnostics = doc.createXULElement("menuitem");
+  diagnostics.setAttribute("label", text.diagnostics);
+  diagnostics.addEventListener("command", () => showSelectedDiagnostics(win));
+  popup.appendChild(diagnostics);
+
+  popup.appendChild(doc.createXULElement("menuseparator"));
 
   const manual = doc.createXULElement("menuitem");
   manual.setAttribute("label", text.manual);

@@ -4630,7 +4630,10 @@
       "category": "计算机网络",
       "aliases": [
         "TOMM",
-        "ACM Transactions on Multimedia Computing, Communications and Applications"
+        "ACM Transactions on Multimedia Computing, Communications and Applications",
+        "ACM Transactions on Multimedia Computing, Communications, and Applications",
+        "ACM Trans. Multimedia Comput. Commun. Appl.",
+        "ACM Trans Multimedia Comput Commun Appl"
       ]
     },
     {
@@ -5006,7 +5009,9 @@
       "category": "软件工程/系统软件/程序设计语言",
       "aliases": [
         "TOSEM",
-        "ACM Transactions on Software Engineering and Methodology"
+        "ACM Transactions on Software Engineering and Methodology",
+        "ACM Trans. Softw. Eng. Methodol.",
+        "ACM Trans Softw Eng Methodol"
       ]
     },
     {
@@ -5280,7 +5285,9 @@
       "category": "数据库/数据挖掘/内容检索",
       "aliases": [
         "TOIS",
-        "ACM Transactions on Information Systems"
+        "ACM Transactions on Information Systems",
+        "ACM Trans. Inf. Syst.",
+        "ACM Trans Inf Syst"
       ]
     },
     {
@@ -5313,7 +5320,9 @@
       "category": "数据库/数据挖掘/内容检索",
       "aliases": [
         "TKDD",
-        "ACM Transactions on Knowledge Discovery from Data"
+        "ACM Transactions on Knowledge Discovery from Data",
+        "ACM Trans. Knowl. Discov. Data",
+        "ACM Trans Knowl Discov Data"
       ]
     },
     {
@@ -5324,7 +5333,9 @@
       "category": "数据库/数据挖掘/内容检索",
       "aliases": [
         "TWEB",
-        "ACM Transactions on the Web"
+        "ACM Transactions on the Web",
+        "ACM Trans. Web",
+        "ACM Trans Web"
       ]
     },
     {
@@ -5619,7 +5630,9 @@
       "category": "数据库/数据挖掘/内容检索",
       "aliases": [
         "TIST",
-        "ACM Transactions on Intelligent Systems and Technology"
+        "ACM Transactions on Intelligent Systems and Technology",
+        "ACM Trans. Intell. Syst. Technol.",
+        "ACM Trans Intell Syst Technol"
       ]
     },
     {
@@ -5992,7 +6005,11 @@
       "category": "计算机图形学与多媒体",
       "aliases": [
         "TOMM",
-        "ACM Transactions on Multimedia Computing,Communications and Applications"
+        "ACM Transactions on Multimedia Computing,Communications and Applications",
+        "ACM Transactions on Multimedia Computing, Communications and Applications",
+        "ACM Transactions on Multimedia Computing, Communications, and Applications",
+        "ACM Trans. Multimedia Comput. Commun. Appl.",
+        "ACM Trans Multimedia Comput Commun Appl"
       ]
     },
     {
@@ -6940,7 +6957,10 @@
       "category": "人机交互与普适计算",
       "aliases": [
         "TOCHI",
-        "ACM Transactions on Computer-Human Interaction"
+        "ACM Transactions on Computer-Human Interaction",
+        "ACM Trans. Comput.-Hum. Interact.",
+        "ACM Trans Comput Hum Interact",
+        "ACM Transactions on Computer Human Interaction"
       ]
     },
     {
@@ -7082,7 +7102,10 @@
       "category": "人机交互与普适计算",
       "aliases": [
         "PACMHCI",
-        "Proceedings of the ACM on Human-Computer Interaction"
+        "Proceedings of the ACM on Human-Computer Interaction",
+        "Proc. ACM Hum.-Comput. Interact.",
+        "Proc ACM Hum Comput Interact",
+        "Proceedings ACM Human Computer Interaction"
       ]
     },
     {

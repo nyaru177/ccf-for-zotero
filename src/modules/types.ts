@@ -35,6 +35,7 @@ export interface ItemRankState {
   venueText?: string;
   confidence?: number;
   catalogVersion?: string;
+  matcherVersion?: string;
   updatedAt: string;
 }
 

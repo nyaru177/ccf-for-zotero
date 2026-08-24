@@ -1,5 +1,29 @@
 # Release Notes
 
+## v0.1.10
+
+这是一次 CCF-only 识别准确性修复，不加入 SCI/JCR/中科院分区。
+
+### 主要功能
+
+- 新增右键菜单 `显示识别诊断`，可查看读取到的 Zotero 字段、候选 venue、最终判定和原因。
+- 新增 `只刷新 Unknown / CCF None`，便于针对漏识别条目重算，不必每次刷新全部所选条目。
+- 新增 `清除缓存并重新识别所选条目`，用于处理旧缓存或规则升级后的局部复算。
+- 自动缓存增加 matcher 版本号；旧自动缓存会即时重算显示，手动设置和忽略状态继续保留。
+
+### 识别增强
+
+- 补全 ACM 常见缩写 venue：`TOIS`、`TOSEM`、`TIST`、`TOMM`、`TKDD`、`TWEB`、`TOCHI`、`PACMHCI`。
+- 收紧误匹配保护：`ICMI`、`ICRAI`、`TSE`、`JBI`、`TOPS` 等相似 acronym/token 不再错误提升。
+- `Companion Proceedings`、`Extended Abstracts`、`Workshop(s)` 默认不自动提升为主会；`HotSec` 这类 CCF Workshop 条目仍可正常匹配。
+- `IEEE Access`、`Nature Communications`、`Scientific Reports`、`Information Fusion` 等高影响但非当前 CCF 目录期刊继续显示 `CCF None`。
+
+### 校验
+
+- `npm run check` 通过。
+- matcher 测试 `62 passed`。
+- 构建产物 manifest 版本为 `0.1.10`，Zotero 兼容范围保持 `6.999` 到 `10.0.*`。
+
 ## v0.1.9
 
 这是 `CCF for Zotero` 的首个公开测试版本，主要面向 Zotero 10 用户。

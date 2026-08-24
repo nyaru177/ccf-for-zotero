@@ -1,4 +1,4 @@
-import { getCatalogVersion, matchCandidates } from "./matcher";
+import { getCatalogVersion, getMatcherVersion, matchCandidates } from "./matcher";
 import { resolveVenueCandidates } from "./venueResolver";
 import {
   getItemKey,
@@ -35,6 +35,7 @@ function toItemRankState(item: Zotero.Item, result: MatchResult): ItemRankState 
     venueText: result.venueText,
     confidence: result.confidence,
     catalogVersion: getCatalogVersion(),
+    matcherVersion: getMatcherVersion(),
     updatedAt: new Date().toISOString(),
   };
 }

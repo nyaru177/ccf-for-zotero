@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { findVenue, getVenueCount, matchCandidates } from "../src/modules/matcher";
+import { formatItemDiagnostics } from "../src/modules/diagnostics";
+import {
+  findVenue,
+  getCatalogVersion,
+  getMatcherVersion,
+  getVenueCount,
+  matchCandidates,
+} from "../src/modules/matcher";
 import {
   searchVenueOptions,
   venueToManualResult,
@@ -324,6 +331,109 @@ describe("local CCF matcher", () => {
     }
   });
 
+  it("matches ACM abbreviated journal titles", () => {
+    const cases: Array<[string, string, string]> = [
+      ["ACM Trans. Inf. Syst.", "A", "TOIS"],
+      ["ACM Trans. Softw. Eng. Methodol.", "A", "TOSEM"],
+      ["ACM Trans. Intell. Syst. Technol.", "C", "TIST"],
+      ["ACM Trans. Multimedia Comput. Commun. Appl.", "B", "TOMM"],
+      ["ACM Trans. Knowl. Discov. Data", "B", "TKDD"],
+      ["ACM Trans. Web", "B", "TWEB"],
+      ["ACM Trans. Comput.-Hum. Interact.", "A", "TOCHI"],
+      ["Proc. ACM Hum.-Comput. Interact.", "C", "PACMHCI"],
+    ];
+
+    for (const [input, rank, abbr] of cases) {
+      const result = findVenue(input, "journal");
+      assert.equal(result?.status, "matched");
+      assert.equal(result?.rank, rank);
+      assert.equal(result?.abbr, abbr);
+    }
+  });
+
+  it("does not match unrelated venues with similar acronyms or tokens", () => {
+    const cases = [
+      {
+        value:
+          "2026 IEEE 5th International Conference on Computing and Machine Intelligence (ICMI)",
+        kindHint: "conference" as const,
+      },
+      {
+        value: "Int. Conf. Robot. Autom. Ind., ICRAI",
+        kindHint: "conference" as const,
+      },
+      {
+        value: "VFAST Transactions on Software Engineering",
+        kindHint: "journal" as const,
+      },
+      {
+        value: "Journal of Computing and Biomedical Informatics",
+        kindHint: "journal" as const,
+      },
+      {
+        value: "IEEE Security & Privacy",
+        kindHint: "journal" as const,
+      },
+    ];
+
+    for (const { value, kindHint } of cases) {
+      const result = matchCandidates(
+        [{ value, field: "publicationTitle", kindHint }],
+        false,
+      );
+      assert.equal(result.status, "none");
+      assert.equal(result.abbr, undefined);
+    }
+  });
+
+  it("keeps companion and workshop proceedings strict", () => {
+    const strictCases = [
+      "Companion Proceedings of the ACM Web Conference 2025",
+      "Proceedings of the Extended Abstracts of the CHI Conference on Human Factors in Computing Systems",
+      "IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops",
+    ];
+
+    for (const value of strictCases) {
+      const result = matchCandidates(
+        [{ value, field: "proceedingsTitle", kindHint: "conference" }],
+        false,
+      );
+      assert.equal(result.status, "none");
+      assert.equal(result.abbr, undefined);
+    }
+
+    const hotSec = matchCandidates(
+      [
+        {
+          value: "USENIX Workshop on Hot Topics in Security",
+          field: "proceedingsTitle",
+          kindHint: "conference",
+        },
+      ],
+      false,
+    );
+    assert.equal(hotSec.status, "matched");
+    assert.equal(hotSec.abbr, "HotSec");
+  });
+
+  it("keeps high-impact non-CCF journals as CCF None", () => {
+    const cases = [
+      "IEEE Access",
+      "Nature Communications",
+      "Scientific Reports",
+      "Information Fusion",
+    ];
+
+    for (const value of cases) {
+      const result = matchCandidates(
+        [{ value, field: "publicationTitle", kindHint: "journal" }],
+        false,
+      );
+      assert.equal(result.status, "none");
+      assert.equal(result.abbr, undefined);
+    }
+  });
+
   it("does not match short journal names embedded in longer IEEE journal titles", () => {
     const result = matchCandidates(
       [
@@ -450,6 +560,8 @@ describe("local CCF matcher", () => {
           source: "auto",
           rank: "A",
           abbr: "ACL",
+          catalogVersion: getCatalogVersion(),
+          matcherVersion: getMatcherVersion(),
           updatedAt: "2026-08-23T00:00:00.000Z",
         },
       },
@@ -472,6 +584,75 @@ describe("local CCF matcher", () => {
       assert.equal(getStoredState(item)?.abbr, "ACL");
       assert.equal(getStoredState(item)?.abbr, "ACL");
       assert.equal(getCalls, 1);
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
+  it("ignores stale automatic cache but keeps manual cache", () => {
+    let getCalls = 0;
+    let setCalls = 0;
+    const rawStore = JSON.stringify({
+      version: 1,
+      items: {
+        "1:101": {
+          itemKey: "1:101",
+          status: "none",
+          source: "auto",
+          venueText: "Old cached venue",
+          catalogVersion: "old-catalog",
+          matcherVersion: "old-matcher",
+          updatedAt: "2026-08-23T00:00:00.000Z",
+        },
+        "1:102": {
+          itemKey: "1:102",
+          status: "matched",
+          source: "manual",
+          rank: "B",
+          abbr: "NAACL",
+          catalogVersion: "old-catalog",
+          matcherVersion: "old-matcher",
+          updatedAt: "2026-08-23T00:00:00.000Z",
+        },
+      },
+    });
+
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          getCalls += 1;
+          return rawStore;
+        },
+        set() {
+          setCalls += 1;
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      assert.equal(
+        getStoredState({ libraryID: 1, id: 101 } as Zotero.Item),
+        undefined,
+      );
+
+      const recomputed = getDisplayState(
+        makeItem(
+          { DOI: "10.18653/v1/2026.acl-long.293" },
+          "conferencePaper",
+          101,
+        ),
+      );
+      assert.equal(recomputed.status, "matched");
+      assert.equal(recomputed.abbr, "ACL");
+
+      const manual = getStoredState({ libraryID: 1, id: 102 } as Zotero.Item);
+      assert.equal(manual?.source, "manual");
+      assert.equal(manual?.abbr, "NAACL");
+      assert.equal(getCalls, 1);
+      assert.equal(setCalls, 0);
     } finally {
       clearStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;
@@ -508,5 +689,20 @@ describe("local CCF matcher", () => {
       clearStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;
     }
+  });
+
+  it("renders diagnostics without writing Zotero metadata", () => {
+    const output = formatItemDiagnostics(
+      makeItem({
+        DOI: "10.18653/v1/2026.acl-long.293",
+        title:
+          "What's Left Unsaid? Detecting and Correcting Misleading Omissions in Multimodal News Previews",
+      }),
+    );
+
+    assert.match(output, /CCF 识别诊断/);
+    assert.match(output, /identifier:acl-anthology/);
+    assert.match(output, /结果：CCF A \| ACL/);
+    assert.match(output, /候选 venue/);
   });
 });

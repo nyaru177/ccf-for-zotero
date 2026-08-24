@@ -15,6 +15,7 @@ interface IndexedVenue {
 }
 
 const data = ccfData as CCFDataFile;
+const MATCHER_VERSION = "0.1.10-ccf-accuracy";
 
 const genericTokens = new Set([
   "acm",
@@ -103,8 +104,14 @@ function stripBoilerplate(value: string): string {
     .trim();
 }
 
-function hasWorkshopMarker(value: string): boolean {
-  return /\bworkshops?\b/.test(normalizeText(value));
+function getStrictNonMainMarkers(value: string): Set<string> {
+  const normalized = normalizeText(value);
+  const markers = new Set<string>();
+  if (/\bworkshops?\b/.test(normalized)) markers.add("workshop");
+  if (/\bcompanion\b/.test(normalized)) markers.add("companion");
+  if (/\bextended abstracts?\b/.test(normalized)) markers.add("extended");
+  if (/\badjunct\b/.test(normalized)) markers.add("extended");
+  return markers;
 }
 
 function extractExplicitAbbrs(value: string): string[] {
@@ -122,9 +129,78 @@ function extractExplicitAbbrs(value: string): string[] {
   return [...candidates].filter(Boolean);
 }
 
-function indexedVenueMentionsWorkshop(indexed: IndexedVenue): boolean {
-  if (hasWorkshopMarker(indexed.venue.fullName)) return true;
-  return (indexed.venue.aliases || []).some((alias) => hasWorkshopMarker(alias));
+function indexedVenueMentionsStrictMarker(
+  indexed: IndexedVenue,
+  marker: string,
+): boolean {
+  const values = [indexed.venue.fullName, ...(indexed.venue.aliases || [])];
+  return values.some((value) => getStrictNonMainMarkers(value).has(marker));
+}
+
+function indexedVenueAllowsStrictMarkers(
+  candidate: string,
+  indexed: IndexedVenue,
+): boolean {
+  const markers = getStrictNonMainMarkers(candidate);
+  if (markers.size === 0) return true;
+
+  for (const marker of markers) {
+    if (!indexedVenueMentionsStrictMarker(indexed, marker)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function candidateExplicitlyRejectsVenue(
+  candidate: string,
+  indexed: IndexedVenue,
+): boolean {
+  const normalized = normalizeText(candidate);
+  const abbr = normalizeAbbr(candidate).replace(/\s+/g, "");
+  const venueAbbr = indexed.venue.abbr;
+
+  if (
+    venueAbbr === "ICMI" &&
+    /\bcomputing and machine intelligence\b/.test(normalized)
+  ) {
+    return true;
+  }
+
+  if (venueAbbr === "ICRA" && /\bicrai\b/i.test(candidate)) {
+    return true;
+  }
+
+  if (
+    venueAbbr === "TSE" &&
+    (/\bvfast\b/.test(normalized) ||
+      /\bsoftware engineering and methodology\b/.test(normalized))
+  ) {
+    return true;
+  }
+
+  if (
+    venueAbbr === "JBI" &&
+    /\bcomputing and biomedical informatics\b/.test(normalized)
+  ) {
+    return true;
+  }
+
+  if (venueAbbr === "TOPS" && /\bieee security and privacy\b/.test(normalized)) {
+    return true;
+  }
+
+  return Boolean(venueAbbr === "ICRA" && abbr === "ICRAI");
+}
+
+function candidateCanMatchIndexed(
+  candidate: string,
+  indexed: IndexedVenue,
+): boolean {
+  return (
+    indexedVenueAllowsStrictMarkers(candidate, indexed) &&
+    !candidateExplicitlyRejectsVenue(candidate, indexed)
+  );
 }
 
 function explicitAbbrSupportsVenue(
@@ -210,6 +286,10 @@ function deriveCanonicalVenueQueries(value: string): string[] {
   const normalized = normalizeText(value);
   const abbr = normalizeAbbr(value);
 
+  if (getStrictNonMainMarkers(value).size > 0) {
+    return [];
+  }
+
   if (
     /\b(ACM\s+)?WEB\s+CONFERENCE\b/.test(abbr) ||
     /\bTHE\s+WEB\s+CONFERENCE\b/.test(abbr) ||
@@ -270,7 +350,12 @@ function scoreVenue(
   const broadMatchAllowed =
     !kindMismatch &&
     !explicitAbbrConflict &&
-    !(hasWorkshopMarker(candidate) && !indexedVenueMentionsWorkshop(indexed));
+    indexedVenueAllowsStrictMarkers(candidate, indexed) &&
+    !candidateExplicitlyRejectsVenue(candidate, indexed);
+
+  if (candidateExplicitlyRejectsVenue(candidate, indexed)) {
+    return 0;
+  }
 
   if (kindHint && indexed.venue.kind === kindHint) {
     score += 120;
@@ -328,11 +413,14 @@ function pickBest(
   const compatibleEntries = kindHint
     ? entries.filter((entry) => entry.venue.kind === kindHint)
     : entries;
-  if (compatibleEntries.length === 0) return undefined;
-  if (compatibleEntries.length === 1) return compatibleEntries[0];
+  const allowedEntries = compatibleEntries.filter((entry) =>
+    candidateCanMatchIndexed(candidate, entry),
+  );
+  if (allowedEntries.length === 0) return undefined;
+  if (allowedEntries.length === 1) return allowedEntries[0];
 
   const normalizedCandidate = normalizeText(candidate);
-  return compatibleEntries
+  return allowedEntries
     .map((entry) => ({
       entry,
       score: scoreVenue(candidate, normalizedCandidate, entry, kindHint),
@@ -471,6 +559,10 @@ export function getVenueCount() {
 
 export function getCatalogVersion() {
   return data.version;
+}
+
+export function getMatcherVersion() {
+  return MATCHER_VERSION;
 }
 
 export function getVenues(): CCFVenue[] {

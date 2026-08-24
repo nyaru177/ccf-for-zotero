@@ -1,5 +1,5 @@
 import { config } from "../../package.json";
-import { getCatalogVersion } from "./matcher";
+import { getCatalogVersion, getMatcherVersion } from "./matcher";
 import { ItemRankState, MatchResult } from "./types";
 
 const STORE_KEY = `${config.prefsPrefix}.itemState`;
@@ -52,7 +52,16 @@ export function clearStorageMemoryCache() {
 }
 
 export function getStoredState(item: Zotero.Item): ItemRankState | undefined {
-  return loadStore().items[getItemKey(item)];
+  const state = loadStore().items[getItemKey(item)];
+  if (!state) return undefined;
+  if (state.source === "manual") return state;
+  if (
+    state.catalogVersion === getCatalogVersion() &&
+    state.matcherVersion === getMatcherVersion()
+  ) {
+    return state;
+  }
+  return undefined;
 }
 
 export function saveMatchResult(item: Zotero.Item, result: MatchResult) {
@@ -67,6 +76,7 @@ export function saveMatchResults(
   const store = loadStore();
   const updatedAt = new Date().toISOString();
   const catalogVersion = getCatalogVersion();
+  const matcherVersion = getMatcherVersion();
   for (const { item, result } of entries) {
     const itemKey = getItemKey(item);
     store.items[itemKey] = {
@@ -80,6 +90,7 @@ export function saveMatchResults(
       venueText: result.venueText,
       confidence: result.confidence,
       catalogVersion,
+      matcherVersion,
       updatedAt,
     };
   }
