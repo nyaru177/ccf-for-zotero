@@ -1,5 +1,20 @@
 import { CCFKind, VenueCandidate, VenueResolution } from "./types";
 
+const inputFingerprintFields = [
+  "title",
+  "publicationTitle",
+  "proceedingsTitle",
+  "conferenceName",
+  "journalAbbreviation",
+  "seriesTitle",
+  "DOI",
+  "url",
+  "extra",
+  "archiveID",
+  "repository",
+  "libraryCatalog",
+];
+
 function getField(item: Zotero.Item, field: string): string {
   try {
     const value = item.getField(field);
@@ -92,6 +107,26 @@ function isPreprint(item: Zotero.Item): boolean {
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function stableHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function getItemInputFingerprint(item: Zotero.Item): string {
+  const payload = {
+    itemType: item.itemType || "",
+    fields: inputFingerprintFields.map((field) => [
+      field,
+      getField(item, field).replace(/\s+/g, " ").trim(),
+    ]),
+  };
+  return `v1:${stableHash(JSON.stringify(payload))}`;
 }
 
 function extractDoiVenuePrefix(value: string): string[] {

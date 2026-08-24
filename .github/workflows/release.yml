@@ -52,7 +52,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TITLE="${TAG_NAME} 首个公开测试版"
+          TITLE="CCF for Zotero ${TAG_NAME}"
           if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
             gh release edit "${TAG_NAME}" --title "${TITLE}" --notes-file RELEASE_NOTES.md
             gh release upload "${TAG_NAME}" release-assets/* --clobber

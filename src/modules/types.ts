@@ -38,6 +38,10 @@ export interface ItemRankState {
   category?: string;
   venueText?: string;
   confidence?: number;
+  inputFingerprint?: string;
+  matchedField?: string;
+  matchedValue?: string;
+  matchMethod?: string;
   catalogVersion?: string;
   matcherVersion?: string;
   updatedAt: string;
@@ -64,4 +68,7 @@ export interface MatchResult {
   fullName?: string;
   category?: string;
   confidence?: number;
+  matchedField?: string;
+  matchedValue?: string;
+  matchMethod?: string;
 }

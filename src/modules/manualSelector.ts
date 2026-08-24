@@ -365,6 +365,16 @@ function buildSelectorHtml() {
       .ccf-filter-option.active {
         background: #e8f1ff;
       }
+      .ccf-filter-group {
+        box-sizing: border-box;
+        padding: 7px 10px 4px;
+        min-width: 170px;
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: default;
+        white-space: nowrap;
+      }
       .ccf-result-meta {
         color: #52616b;
         font-size: 12px;
@@ -517,7 +527,7 @@ export async function openManualVenueSelector(
 
     function createFilterControl<T extends string>(
       label: string,
-      options: Array<{ value: T; label: string }>,
+      options: Array<{ value: T; label: string; group?: boolean }>,
       getValue: () => T,
       setValue: (value: T) => void,
     ) {
@@ -559,6 +569,13 @@ export async function openManualVenueSelector(
 
       for (const option of options) {
         const optionElement = createHtmlElement<HTMLDivElement>(doc, "div");
+        if (option.group) {
+          optionElement.className = "ccf-filter-group";
+          optionElement.textContent = option.label;
+          menu.appendChild(optionElement);
+          continue;
+        }
+
         optionElement.className = "ccf-filter-option";
         optionElement.dataset.value = option.value;
         optionElement.textContent = option.label;
@@ -626,7 +643,8 @@ export async function openManualVenueSelector(
 
     const help = createHtmlElement<HTMLDivElement>(doc, "div");
     help.className = "ccf-search-help";
-    help.textContent = "支持简称、全称、分类和英文领域词；下方分类筛选作为备用。";
+    help.textContent =
+      "支持简称、全称、分类和英文领域词；A/B/C 与 T1/T2/T3 来自不同 CCF 目录。";
     root.appendChild(help);
 
     const filterRow = createHtmlElement<HTMLDivElement>(doc, "div");
@@ -653,9 +671,11 @@ export async function openManualVenueSelector(
         "等级",
         [
           { value: "", label: "全部等级" },
+          { value: "" as "", label: "国际会议/期刊目录", group: true },
           { value: "A", label: "CCF A" },
           { value: "B", label: "CCF B" },
           { value: "C", label: "CCF C" },
+          { value: "" as "", label: "高质量科技期刊目录", group: true },
           { value: "T1", label: "CCF T1" },
           { value: "T2", label: "CCF T2" },
           { value: "T3", label: "CCF T3" },

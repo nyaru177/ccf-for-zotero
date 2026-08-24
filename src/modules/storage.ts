@@ -1,6 +1,7 @@
 import { config } from "../../package.json";
 import { getCatalogVersion, getMatcherVersion } from "./matcher";
 import { ItemRankState, MatchResult } from "./types";
+import { getItemInputFingerprint } from "./venueResolver";
 
 const STORE_KEY = `${config.prefsPrefix}.itemState`;
 const STORE_VERSION = 1;
@@ -57,7 +58,9 @@ export function getStoredState(item: Zotero.Item): ItemRankState | undefined {
   if (state.source === "manual") return state;
   if (
     state.catalogVersion === getCatalogVersion() &&
-    state.matcherVersion === getMatcherVersion()
+    state.matcherVersion === getMatcherVersion() &&
+    (!state.inputFingerprint ||
+      state.inputFingerprint === getItemInputFingerprint(item))
   ) {
     return state;
   }
@@ -89,6 +92,10 @@ export function saveMatchResults(
       category: result.category,
       venueText: result.venueText,
       confidence: result.confidence,
+      inputFingerprint: getItemInputFingerprint(item),
+      matchedField: result.matchedField,
+      matchedValue: result.matchedValue,
+      matchMethod: result.matchMethod,
       catalogVersion,
       matcherVersion,
       updatedAt,

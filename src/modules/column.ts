@@ -4,31 +4,112 @@ import { getDisplayState } from "./rankService";
 import { ItemRankState } from "./types";
 
 const dataKey = "ccfForZoteroRank";
+const sortDataSeparator = "\u001e";
 const cellTitleSeparator = "\u001f";
 
-function packCellData(display: string, title = display): string {
-  return title === display ? display : `${display}${cellTitleSeparator}${title}`;
+const rankSortOrder: Record<string, string> = {
+  A: "010",
+  B: "020",
+  C: "030",
+  T1: "110",
+  T2: "120",
+  T3: "130",
+};
+
+function packColumnData(
+  sortKey: string,
+  display: string,
+  title = display,
+): string {
+  const cellData =
+    title === display ? display : `${display}${cellTitleSeparator}${title}`;
+  return `${sortKey}${sortDataSeparator}${cellData}`;
 }
 
-function unpackCellData(data: string): { display: string; title: string } {
-  const [display, title] = data.split(cellTitleSeparator);
-  return { display: display || "", title: title || display || "" };
+export function unpackColumnData(data: string): {
+  sortKey: string;
+  display: string;
+  title: string;
+} {
+  const [sortKey, cellData = ""] = data.includes(sortDataSeparator)
+    ? data.split(sortDataSeparator)
+    : ["900", data];
+  const [display, title] = cellData.split(cellTitleSeparator);
+  return {
+    sortKey,
+    display: display || "",
+    title: title || display || "",
+  };
 }
 
-function formatState(state: ItemRankState): string {
-  if (state.status === "ignored") return "";
-  if (state.status === "preprint") return "Preprint | arXiv";
-  if (state.status === "unknown") return "Unknown";
-  if (state.status === "none") {
+function formatTimestamp(value?: string): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function getCatalogLabel(state: ItemRankState): string | undefined {
+  if (state.status !== "matched") return undefined;
+  return state.rank?.startsWith("T") ? "2025 高质量期刊" : "2026 国际目录";
+}
+
+function getSortKey(state: ItemRankState, display: string): string {
+  if (state.status === "ignored") return "990";
+  if (state.status === "matched" && state.rank) {
+    return `${rankSortOrder[state.rank] || "190"}|${state.abbr || display}`;
+  }
+  if (state.status === "none") return `700|${display}`;
+  if (state.status === "preprint") return `800|${display}`;
+  return `900|${display}`;
+}
+
+function buildTooltip(state: ItemRankState, display: string): string {
+  if (!display) return "";
+  const lines = [display];
+  const catalog = getCatalogLabel(state);
+  if (state.category || catalog) {
+    lines.push([state.category, catalog].filter(Boolean).join(" · "));
+  }
+  const source = state.matchedField
+    ? `${state.matchedField}${state.matchMethod ? ` · ${state.matchMethod}` : ""}`
+    : state.matchMethod;
+  if (source) lines.push(`来源：${source}`);
+  const updatedAt = formatTimestamp(state.updatedAt);
+  if (updatedAt) lines.push(`更新：${updatedAt}`);
+  return lines.slice(0, 4).join("\n");
+}
+
+export function formatColumnDataForState(state: ItemRankState): string {
+  let display = "";
+  let title = "";
+
+  if (state.status === "ignored") {
+    return packColumnData(getSortKey(state, display), display, title);
+  }
+  if (state.status === "preprint") {
+    display = "Preprint | arXiv";
+  } else if (state.status === "unknown") {
+    display = "Unknown";
+  } else if (state.status === "none") {
     const originalVenue = state.venueText || "Venue";
     const displayVenue = formatNonCcfVenueText(originalVenue);
-    return packCellData(
-      `CCF None | ${displayVenue}`,
-      `CCF None | ${originalVenue}`,
-    );
+    display = `CCF None | ${displayVenue}`;
+    title = buildTooltip(state, `CCF None | ${originalVenue}`);
+  } else if (state.rank && state.abbr) {
+    display = `CCF ${state.rank} | ${state.abbr}`;
+  } else {
+    display = "Unknown";
   }
-  if (state.rank && state.abbr) return `CCF ${state.rank} | ${state.abbr}`;
-  return "Unknown";
+
+  if (!title) title = buildTooltip(state, display);
+  return packColumnData(getSortKey(state, display), display, title);
 }
 
 function getBadgeColors(text: string) {
@@ -69,10 +150,18 @@ export async function registerCCFColumn() {
     dataProvider: (item: Zotero.Item) => {
       if (!item || item.isAttachment() || item.isNote()) return "";
       try {
-        return formatState(getDisplayState(item));
+        return formatColumnDataForState(
+          getDisplayState(item, { computeIfMissing: false }),
+        );
       } catch (error) {
         ztoolkit.log("CCF column dataProvider failed", error);
-        return "Unknown";
+        return formatColumnDataForState({
+          itemKey: `${item.libraryID}:${item.id}`,
+          status: "unknown",
+          source: "auto",
+          confidence: 0,
+          updatedAt: new Date().toISOString(),
+        });
       }
     },
     renderCell: (
@@ -82,7 +171,7 @@ export async function registerCCFColumn() {
       isFirstColumn: boolean,
       doc: Document,
     ) => {
-      const cellData = unpackCellData(data);
+      const cellData = unpackColumnData(data);
       const cell = doc.createElement("span");
       cell.className = `cell ${column.className}`;
       cell.title = cellData.title || "";

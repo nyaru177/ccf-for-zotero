@@ -8,6 +8,10 @@ import {
 } from "./storage";
 import { ItemRankState, MatchResult } from "./types";
 
+export interface GetDisplayStateOptions {
+  computeIfMissing?: boolean;
+}
+
 export interface RefreshItemsRankOptions {
   onProgress?: (
     done: number,
@@ -48,10 +52,22 @@ export function resolveItemRank(item: Zotero.Item): MatchResult {
   return matchCandidates(resolution.candidates, resolution.isPreprint);
 }
 
-export function getDisplayState(item: Zotero.Item): ItemRankState {
+export function getDisplayState(
+  item: Zotero.Item,
+  options: GetDisplayStateOptions = {},
+): ItemRankState {
   const stored = getStoredState(item);
   if (stored) {
     return stored;
+  }
+
+  if (options.computeIfMissing === false) {
+    return toItemRankState(item, {
+      status: "unknown",
+      source: "auto",
+      confidence: 0,
+      matchMethod: "无有效缓存；未在列排序路径即时计算",
+    });
   }
 
   const result = resolveItemRank(item);
@@ -69,6 +85,9 @@ function toItemRankState(item: Zotero.Item, result: MatchResult): ItemRankState 
     category: result.category,
     venueText: result.venueText,
     confidence: result.confidence,
+    matchedField: result.matchedField,
+    matchedValue: result.matchedValue,
+    matchMethod: result.matchMethod,
     catalogVersion: getCatalogVersion(),
     matcherVersion: getMatcherVersion(),
     updatedAt: new Date().toISOString(),

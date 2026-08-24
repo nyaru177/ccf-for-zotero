@@ -37,6 +37,14 @@ function formatConfidence(result: MatchResult): string {
   return `${Math.round(result.confidence * 100)}%`;
 }
 
+function formatEvidence(result: MatchResult): string[] {
+  const lines: string[] = [];
+  if (result.matchedField) lines.push(`命中字段：${result.matchedField}`);
+  if (result.matchedValue) lines.push(`命中线索：${result.matchedValue}`);
+  if (result.matchMethod) lines.push(`匹配规则：${result.matchMethod}`);
+  return lines;
+}
+
 function formatResult(result: MatchResult): string {
   if (result.status === "matched") {
     return [
@@ -44,6 +52,7 @@ function formatResult(result: MatchResult): string {
       `全称：${result.fullName || "n/a"}`,
       `分类：${result.category || "n/a"}`,
       `来源文本：${result.venueText || "n/a"}`,
+      ...formatEvidence(result),
       `置信度：${formatConfidence(result)}`,
     ].join("\n");
   }
@@ -53,6 +62,7 @@ function formatResult(result: MatchResult): string {
     return [
       `结果：CCF None | ${formatNonCcfVenueText(venueText)}`,
       `来源文本：${venueText}`,
+      ...formatEvidence(result),
       `置信度：${formatConfidence(result)}`,
     ].join("\n");
   }
@@ -61,11 +71,16 @@ function formatResult(result: MatchResult): string {
     return [
       "结果：Preprint | arXiv",
       `来源文本：${result.venueText || "arXiv"}`,
+      ...formatEvidence(result),
       `置信度：${formatConfidence(result)}`,
     ].join("\n");
   }
 
-  return ["结果：Unknown", `置信度：${formatConfidence(result)}`].join("\n");
+  return [
+    "结果：Unknown",
+    ...formatEvidence(result),
+    `置信度：${formatConfidence(result)}`,
+  ].join("\n");
 }
 
 function explainResult(diagnostics: ItemDiagnostics): string {

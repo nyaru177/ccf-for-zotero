@@ -23,7 +23,7 @@ const data: CCFDataFile = {
   source: `${internationalData.source}; ${chineseJournalData.source}`,
   venues: [...internationalData.venues, ...chineseJournalData.venues],
 };
-const MATCHER_VERSION = "0.1.15-chinese-t-rank";
+const MATCHER_VERSION = "0.1.16-cache-fingerprint";
 
 const genericTokens = new Set([
   "acm",
@@ -488,7 +488,7 @@ function findVenueFromQuery(
     ? pickBest(index.aliasMap.get(abbr) || [], stripped, kindHint)
     : undefined;
   if (exactAlias) {
-    return toMatchResult(exactAlias, venueText, 1);
+    return toMatchResult(exactAlias, venueText, 1, "精确简称/别名匹配");
   }
 
   const compactAlias = abbr
@@ -499,7 +499,7 @@ function findVenueFromQuery(
       )
     : undefined;
   if (compactAlias) {
-    return toMatchResult(compactAlias, venueText, 0.98);
+    return toMatchResult(compactAlias, venueText, 0.98, "紧凑简称/别名匹配");
   }
 
   const exactTextAlias = pickBest(
@@ -508,7 +508,7 @@ function findVenueFromQuery(
     kindHint,
   );
   if (exactTextAlias) {
-    return toMatchResult(exactTextAlias, venueText, 0.98);
+    return toMatchResult(exactTextAlias, venueText, 0.98, "精确文本别名匹配");
   }
 
   const exactFull = pickBest(
@@ -517,7 +517,7 @@ function findVenueFromQuery(
     kindHint,
   );
   if (exactFull) {
-    return toMatchResult(exactFull, venueText, 0.96);
+    return toMatchResult(exactFull, venueText, 0.96, "精确全称匹配");
   }
 
   const leadingToken = stripped.match(/^([A-Za-z][A-Za-z0-9+/-]{1,})\b/);
@@ -529,7 +529,7 @@ function findVenueFromQuery(
       kindHint,
     );
     if (leadingAlias) {
-      return toMatchResult(leadingAlias, venueText, 0.92);
+      return toMatchResult(leadingAlias, venueText, 0.92, "开头简称匹配");
     }
   }
 
@@ -542,7 +542,12 @@ function findVenueFromQuery(
   }
 
   if (best && best.score >= 780) {
-    return toMatchResult(best.entry, venueText, Math.min(best.score / 1000, 0.9));
+    return toMatchResult(
+      best.entry,
+      venueText,
+      Math.min(best.score / 1000, 0.9),
+      "受限模糊匹配",
+    );
   }
 
   return undefined;
@@ -565,7 +570,12 @@ export function matchCandidates(
       ) {
         continue;
       }
-      return match;
+      return {
+        ...match,
+        matchedField: candidate.field,
+        matchedValue: candidate.value,
+        matchMethod: describeCandidateMatch(candidate, match.matchMethod),
+      };
     }
   }
 
@@ -575,6 +585,7 @@ export function matchCandidates(
       source: "auto",
       venueText: "arXiv",
       confidence: 1,
+      matchMethod: "预印本信号",
     };
   }
 
@@ -585,13 +596,17 @@ export function matchCandidates(
       source: "auto",
       venueText: firstVenue.value,
       confidence: 0.5,
+      matchedField: firstVenue.field,
+      matchedValue: firstVenue.value,
+      matchMethod: "有明确 venue，但未命中 CCF 目录",
     };
   }
 
   return {
-    status: "unknown",
-    source: "auto",
-    confidence: 0,
+      status: "unknown",
+      source: "auto",
+      confidence: 0,
+      matchMethod: "没有足够 venue 线索",
   };
 }
 
@@ -615,6 +630,7 @@ function toMatchResult(
   indexed: IndexedVenue,
   venueText: string,
   confidence: number,
+  matchMethod: string,
 ): MatchResult {
   return {
     status: "matched",
@@ -625,7 +641,33 @@ function toMatchResult(
     category: indexed.venue.category,
     venueText,
     confidence,
+    matchMethod,
   };
+}
+
+function describeCandidateMatch(
+  candidate: VenueCandidate,
+  matcherMethod?: string,
+): string {
+  if (candidate.field === "identifier:acl-anthology") {
+    return `ACL Anthology DOI/URL 线索 + ${matcherMethod || "本地匹配"}`;
+  }
+  if (candidate.field === "identifier:doi-prefix") {
+    return `DOI 前缀线索 + ${matcherMethod || "本地匹配"}`;
+  }
+  if (candidate.field === "identifier") {
+    return `URL/标识符线索 + ${matcherMethod || "本地匹配"}`;
+  }
+  if (candidate.field.endsWith(":abbr")) {
+    return `字段中的显式简称 + ${matcherMethod || "本地匹配"}`;
+  }
+  if (candidate.field === "title") {
+    return `标题括号简称 + ${matcherMethod || "本地匹配"}`;
+  }
+  if (candidate.field === "extra") {
+    return `Extra 中的 venue 线索 + ${matcherMethod || "本地匹配"}`;
+  }
+  return `${candidate.field} 字段 + ${matcherMethod || "本地匹配"}`;
 }
 
 function isAbbreviationCandidate(value: string): boolean {

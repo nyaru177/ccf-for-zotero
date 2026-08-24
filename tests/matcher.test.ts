@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  formatColumnDataForState,
+  unpackColumnData,
+} from "../src/modules/column";
 import { formatItemDiagnostics } from "../src/modules/diagnostics";
 import {
   findVenue,
@@ -19,7 +23,10 @@ import {
   refreshItemsRank,
 } from "../src/modules/rankService";
 import { clearStorageMemoryCache, getStoredState } from "../src/modules/storage";
-import { resolveVenueCandidates } from "../src/modules/venueResolver";
+import {
+  getItemInputFingerprint,
+  resolveVenueCandidates,
+} from "../src/modules/venueResolver";
 
 function makeItem(
   fields: Record<string, string>,
@@ -39,6 +46,7 @@ function makeItem(
 describe("local CCF matcher", () => {
   it("loads the CCF catalog", () => {
     assert.equal(getVenueCount(), 750);
+    assert.match(getMatcherVersion(), /^0\.1\.16/);
   });
 
   const cases: Array<[string, string, string]> = [
@@ -749,6 +757,146 @@ describe("local CCF matcher", () => {
     }
   });
 
+  it("uses a cheap display path for uncached column values", () => {
+    let getCalls = 0;
+    let setCalls = 0;
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          getCalls += 1;
+          return "";
+        },
+        set() {
+          setCalls += 1;
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      const item = makeItem(
+        { DOI: "10.18653/v1/2026.acl-long.293" },
+        "conferencePaper",
+        110,
+      );
+      const state = getDisplayState(item, { computeIfMissing: false });
+      assert.equal(state.status, "unknown");
+      assert.equal(state.matchMethod, "无有效缓存；未在列排序路径即时计算");
+      assert.equal(getCalls, 1);
+      assert.equal(setCalls, 0);
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
+  it("invalidates automatic cache when item venue inputs change", () => {
+    const originalItem = makeItem({}, "conferencePaper", 111);
+    const updatedItem = makeItem(
+      { DOI: "10.18653/v1/2026.acl-long.293" },
+      "conferencePaper",
+      111,
+    );
+    const manualItem = makeItem(
+      { DOI: "10.18653/v1/2026.acl-long.293" },
+      "conferencePaper",
+      112,
+    );
+    const rawStore = JSON.stringify({
+      version: 1,
+      items: {
+        "1:111": {
+          itemKey: "1:111",
+          status: "unknown",
+          source: "auto",
+          catalogVersion: getCatalogVersion(),
+          matcherVersion: getMatcherVersion(),
+          inputFingerprint: getItemInputFingerprint(originalItem),
+          updatedAt: "2026-08-24T00:00:00.000Z",
+        },
+        "1:112": {
+          itemKey: "1:112",
+          status: "matched",
+          source: "manual",
+          rank: "B",
+          abbr: "NAACL",
+          catalogVersion: getCatalogVersion(),
+          matcherVersion: getMatcherVersion(),
+          inputFingerprint: getItemInputFingerprint(originalItem),
+          updatedAt: "2026-08-24T00:00:00.000Z",
+        },
+      },
+    });
+
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return rawStore;
+        },
+        set() {},
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      assert.equal(getStoredState(updatedItem), undefined);
+      assert.equal(getDisplayState(updatedItem).abbr, "ACL");
+      assert.equal(getStoredState(manualItem)?.abbr, "NAACL");
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
+  it("formats CCF column data with stable sort keys and concise tooltips", () => {
+    const a = unpackColumnData(
+      formatColumnDataForState({
+        itemKey: "1:1",
+        status: "matched",
+        source: "auto",
+        rank: "A",
+        abbr: "ACL",
+        fullName: "Annual Meeting of the Association for Computational Linguistics",
+        category: "人工智能",
+        confidence: 1,
+        matchedField: "identifier:acl-anthology",
+        matchMethod: "ACL Anthology DOI/URL 线索 + 精确简称/别名匹配",
+        updatedAt: "2026-08-24T12:00:00.000Z",
+      }),
+    );
+    const none = unpackColumnData(
+      formatColumnDataForState({
+        itemKey: "1:2",
+        status: "none",
+        source: "auto",
+        venueText: "Journal of Extremely Local Experiments",
+        confidence: 0.5,
+        matchedField: "publicationTitle",
+        matchMethod: "有明确 venue，但未命中 CCF 目录",
+        updatedAt: "2026-08-24T12:00:00.000Z",
+      }),
+    );
+    const unknown = unpackColumnData(
+      formatColumnDataForState({
+        itemKey: "1:3",
+        status: "unknown",
+        source: "auto",
+        confidence: 0,
+        updatedAt: "2026-08-24T12:00:00.000Z",
+      }),
+    );
+
+    assert.equal(a.display, "CCF A | ACL");
+    assert.match(a.title, /2026 国际目录/);
+    assert.match(a.title, /identifier:acl-anthology/);
+    assert.equal(none.display, "CCF None | Journal of Extremely Local Experiments");
+    assert.equal(unknown.display, "Unknown");
+    assert.equal(a.sortKey < none.sortKey, true);
+    assert.equal(none.sortKey < unknown.sortKey, true);
+  });
+
   it("cancels batch refresh after saving completed entries", async () => {
     let cancelled = false;
     let rawStore = "";
@@ -790,11 +938,11 @@ describe("local CCF matcher", () => {
 
       clearStorageMemoryCache();
       assert.equal(
-        getStoredState({ libraryID: 1, id: 201 } as Zotero.Item)?.abbr,
+        getStoredState(makeItem({ proceedingsTitle: "ACL" }, "conferencePaper", 201))?.abbr,
         "ACL",
       );
       assert.equal(
-        getStoredState({ libraryID: 1, id: 202 } as Zotero.Item),
+        getStoredState(makeItem({ proceedingsTitle: "EMNLP" }, "conferencePaper", 202)),
         undefined,
       );
     } finally {
@@ -866,6 +1014,8 @@ describe("local CCF matcher", () => {
     assert.match(output, /CCF 识别诊断/);
     assert.match(output, /identifier:acl-anthology/);
     assert.match(output, /结果：CCF A \| ACL/);
+    assert.match(output, /命中字段：identifier:acl-anthology/);
+    assert.match(output, /匹配规则：ACL Anthology DOI\/URL 线索/);
     assert.match(output, /候选 venue/);
   });
 
@@ -875,6 +1025,8 @@ describe("local CCF matcher", () => {
     );
 
     assert.match(output, /结果：CCF T1 \| 电子学报/);
+    assert.match(output, /命中字段：publicationTitle/);
+    assert.match(output, /匹配规则：publicationTitle 字段/);
     assert.match(output, /2025 计算领域高质量科技期刊目录/);
   });
 });
