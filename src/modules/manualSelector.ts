@@ -244,18 +244,6 @@ function createHtmlElement<T extends HTMLElement>(
   return doc.createElementNS(XHTML_NS, tagName) as T;
 }
 
-function addSelectOption(
-  doc: Document,
-  select: HTMLSelectElement,
-  value: string,
-  label: string,
-) {
-  const option = createHtmlElement<HTMLOptionElement>(doc, "option");
-  option.value = value;
-  option.textContent = label;
-  select.appendChild(option);
-}
-
 function buildSelectorHtml() {
   return `
     <style>
@@ -263,43 +251,119 @@ function buildSelectorHtml() {
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        min-width: 680px;
-        min-height: 500px;
-        padding: 14px;
-        font: menu;
-      }
-      .ccf-selector input,
-      .ccf-selector select {
-        box-sizing: border-box;
-        min-height: 30px;
-        border: 1px solid #cfd6df;
-        border-radius: 6px;
-        padding: 4px 8px;
-        font: menu;
+        gap: 9px;
+        width: 100%;
+        height: 520px;
+        min-width: 0;
+        min-height: 0;
+        padding: 12px;
+        color: #1f2933;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px;
+        line-height: 1.35;
+        overflow: hidden;
       }
       .ccf-selector input {
+        box-sizing: border-box;
         width: 100%;
+        height: 34px;
+        border: 1px solid #cfd6df;
+        border-radius: 6px;
+        padding: 5px 9px;
+        color: #1f2933;
+        background: #fff;
+        font-family: inherit;
         font-size: 14px;
+        line-height: 20px;
       }
       .ccf-filter-row {
         display: grid;
-        grid-template-columns: 120px 120px 1fr;
+        grid-template-columns: minmax(110px, 145px) minmax(110px, 145px) minmax(220px, 1fr);
         gap: 8px;
+        position: relative;
+        z-index: 30;
+        flex: 0 0 auto;
+      }
+      .ccf-filter {
+        position: relative;
+        min-width: 0;
+      }
+      .ccf-filter-trigger {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        height: 34px;
+        border: 1px solid #cfd6df;
+        border-radius: 6px;
+        padding: 0 10px;
+        background: #f5f7fa;
+        color: #111827;
+        cursor: pointer;
+        user-select: none;
+      }
+      .ccf-filter-trigger:focus {
+        outline: 2px solid #79a8e8;
+        outline-offset: 1px;
+      }
+      .ccf-filter-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ccf-filter-arrow {
+        color: #52616b;
+        flex: 0 0 auto;
+      }
+      .ccf-filter-menu {
+        box-sizing: border-box;
+        display: none;
+        position: absolute;
+        top: 38px;
+        left: 0;
+        min-width: 100%;
+        max-width: min(560px, 90vw);
+        max-height: 260px;
+        overflow: auto;
+        z-index: 100;
+        border: 1px solid #ccd6e0;
+        border-radius: 6px;
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+      }
+      .ccf-filter.open .ccf-filter-menu {
+        display: block;
+      }
+      .ccf-filter-option {
+        box-sizing: border-box;
+        padding: 7px 10px;
+        min-width: 170px;
+        color: #1f2933;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .ccf-filter-option:hover,
+      .ccf-filter-option.active {
+        background: #e8f1ff;
       }
       .ccf-result-meta {
         color: #52616b;
         font-size: 12px;
+        flex: 0 0 auto;
       }
       .ccf-search-help {
         color: #52616b;
         font-size: 12px;
+        flex: 0 0 auto;
       }
       .ccf-result-list {
         border: 1px solid #d8dee6;
         border-radius: 6px;
         flex: 1;
-        min-height: 320px;
+        min-height: 0;
         overflow: auto;
         background: #fff;
       }
@@ -307,14 +371,12 @@ function buildSelectorHtml() {
         box-sizing: border-box;
         display: block;
         width: 100%;
-        border: 0;
         border-bottom: 1px solid #edf0f4;
         background: #fff;
         color: #1f2933;
-        padding: 8px 10px;
-        text-align: left;
-        font: menu;
+        padding: 8px 10px 7px;
         cursor: pointer;
+        user-select: none;
       }
       .ccf-option:hover {
         background: #f5f8fb;
@@ -325,15 +387,19 @@ function buildSelectorHtml() {
         outline-offset: -2px;
       }
       .ccf-option-line {
-        display: flex;
+        display: grid;
+        grid-template-columns: auto auto auto minmax(0, 1fr);
         align-items: center;
         gap: 8px;
         min-width: 0;
+        line-height: 20px;
       }
       .ccf-rank-pill {
         border-radius: 999px;
         padding: 1px 7px;
         font-weight: 650;
+        line-height: 18px;
+        white-space: nowrap;
       }
       .ccf-rank-a {
         background: #dff3e8;
@@ -349,14 +415,23 @@ function buildSelectorHtml() {
       }
       .ccf-venue-abbr {
         font-weight: 700;
+        color: #111827;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .ccf-venue-meta {
         color: #52616b;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .ccf-venue-full {
         display: block;
-        margin-top: 4px;
+        margin-top: 3px;
         color: #394b59;
+        font-size: 12px;
+        line-height: 18px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -365,6 +440,7 @@ function buildSelectorHtml() {
         min-height: 18px;
         color: #9b2c2c;
         font-size: 12px;
+        flex: 0 0 auto;
       }
     </style>
     <div id="ccf-selector-root" class="ccf-selector"></div>
@@ -397,6 +473,121 @@ export async function openManualVenueSelector(
 
     root.textContent = "";
 
+    let kindFilter: "" | CCFKind = "";
+    let rankFilter: "" | CCFRank = "";
+    let categoryFilter = "";
+    let render = () => {};
+    const filterControls: HTMLElement[] = [];
+
+    const closeFilterMenus = (except?: HTMLElement) => {
+      for (const control of filterControls) {
+        if (control !== except) {
+          control.classList.remove("open");
+        }
+      }
+    };
+
+    function createFilterControl<T extends string>(
+      label: string,
+      options: Array<{ value: T; label: string }>,
+      getValue: () => T,
+      setValue: (value: T) => void,
+    ) {
+      const wrapper = createHtmlElement<HTMLDivElement>(doc, "div");
+      wrapper.className = "ccf-filter";
+
+      const trigger = createHtmlElement<HTMLDivElement>(doc, "div");
+      trigger.className = "ccf-filter-trigger";
+      trigger.setAttribute("role", "button");
+      trigger.setAttribute("tabindex", "0");
+      trigger.setAttribute("aria-label", label);
+
+      const labelElement = createHtmlElement<HTMLSpanElement>(doc, "span");
+      labelElement.className = "ccf-filter-label";
+      trigger.appendChild(labelElement);
+
+      const arrow = createHtmlElement<HTMLSpanElement>(doc, "span");
+      arrow.className = "ccf-filter-arrow";
+      arrow.textContent = "▾";
+      trigger.appendChild(arrow);
+
+      const menu = createHtmlElement<HTMLDivElement>(doc, "div");
+      menu.className = "ccf-filter-menu";
+      menu.setAttribute("role", "listbox");
+
+      const optionElements: HTMLElement[] = [];
+      const updateSelectedOption = () => {
+        const currentValue = getValue();
+        const currentOption =
+          options.find((option) => option.value === currentValue) || options[0];
+        labelElement.textContent = currentOption?.label || label;
+        for (const optionElement of optionElements) {
+          optionElement.classList.toggle(
+            "active",
+            optionElement.dataset.value === currentValue,
+          );
+        }
+      };
+
+      for (const option of options) {
+        const optionElement = createHtmlElement<HTMLDivElement>(doc, "div");
+        optionElement.className = "ccf-filter-option";
+        optionElement.dataset.value = option.value;
+        optionElement.textContent = option.label;
+        optionElement.setAttribute("role", "option");
+        optionElement.setAttribute("tabindex", "0");
+        optionElement.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setValue(option.value);
+          updateSelectedOption();
+          closeFilterMenus();
+          render();
+        });
+        optionElement.addEventListener("keydown", (event) => {
+          const keyboardEvent = event as KeyboardEvent;
+          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+            keyboardEvent.preventDefault();
+            setValue(option.value);
+            updateSelectedOption();
+            closeFilterMenus();
+            render();
+          }
+          if (keyboardEvent.key === "Escape") {
+            closeFilterMenus();
+          }
+        });
+        optionElements.push(optionElement);
+        menu.appendChild(optionElement);
+      }
+
+      trigger.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const shouldOpen = !wrapper.classList.contains("open");
+        closeFilterMenus(wrapper);
+        wrapper.classList.toggle("open", shouldOpen);
+      });
+      trigger.addEventListener("keydown", (event) => {
+        const keyboardEvent = event as KeyboardEvent;
+        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+          keyboardEvent.preventDefault();
+          const shouldOpen = !wrapper.classList.contains("open");
+          closeFilterMenus(wrapper);
+          wrapper.classList.toggle("open", shouldOpen);
+        }
+        if (keyboardEvent.key === "Escape") {
+          closeFilterMenus();
+        }
+      });
+
+      wrapper.appendChild(trigger);
+      wrapper.appendChild(menu);
+      filterControls.push(wrapper);
+      updateSelectedOption();
+      return wrapper;
+    }
+
     const queryInput = createHtmlElement<HTMLInputElement>(doc, "input");
     queryInput.id = "ccf-selector-query";
     queryInput.type = "search";
@@ -414,28 +605,53 @@ export async function openManualVenueSelector(
     filterRow.className = "ccf-filter-row";
     root.appendChild(filterRow);
 
-    const kindSelect = createHtmlElement<HTMLSelectElement>(doc, "select");
-    kindSelect.id = "ccf-selector-kind";
-    addSelectOption(doc, kindSelect, "", "全部类型");
-    addSelectOption(doc, kindSelect, "conference", "会议");
-    addSelectOption(doc, kindSelect, "journal", "期刊");
-    filterRow.appendChild(kindSelect);
+    filterRow.appendChild(
+      createFilterControl<"" | CCFKind>(
+        "类型",
+        [
+          { value: "", label: "全部类型" },
+          { value: "conference", label: "会议" },
+          { value: "journal", label: "期刊" },
+        ],
+        () => kindFilter,
+        (value) => {
+          kindFilter = value;
+        },
+      ),
+    );
 
-    const rankSelect = createHtmlElement<HTMLSelectElement>(doc, "select");
-    rankSelect.id = "ccf-selector-rank";
-    addSelectOption(doc, rankSelect, "", "全部等级");
-    addSelectOption(doc, rankSelect, "A", "CCF A");
-    addSelectOption(doc, rankSelect, "B", "CCF B");
-    addSelectOption(doc, rankSelect, "C", "CCF C");
-    filterRow.appendChild(rankSelect);
+    filterRow.appendChild(
+      createFilterControl<"" | CCFRank>(
+        "等级",
+        [
+          { value: "", label: "全部等级" },
+          { value: "A", label: "CCF A" },
+          { value: "B", label: "CCF B" },
+          { value: "C", label: "CCF C" },
+        ],
+        () => rankFilter,
+        (value) => {
+          rankFilter = value;
+        },
+      ),
+    );
 
-    const categorySelect = createHtmlElement<HTMLSelectElement>(doc, "select");
-    categorySelect.id = "ccf-selector-category";
-    addSelectOption(doc, categorySelect, "", "全部分类");
-    for (const category of getCCFCategories()) {
-      addSelectOption(doc, categorySelect, category, category);
-    }
-    filterRow.appendChild(categorySelect);
+    filterRow.appendChild(
+      createFilterControl<string>(
+        "分类",
+        [
+          { value: "", label: "全部分类" },
+          ...getCCFCategories().map((category) => ({
+            value: category,
+            label: category,
+          })),
+        ],
+        () => categoryFilter,
+        (value) => {
+          categoryFilter = value;
+        },
+      ),
+    );
 
     const meta = createHtmlElement<HTMLDivElement>(doc, "div");
     meta.id = "ccf-selector-meta";
@@ -452,11 +668,21 @@ export async function openManualVenueSelector(
     status.className = "ccf-dialog-status";
     root.appendChild(status);
 
-    const render = () => {
+    const markSelection = () => {
+      const selectedKey = selectedVenue ? venueKey(selectedVenue) : "";
+      const rows = Array.from(
+        list.getElementsByClassName("ccf-option"),
+      ) as HTMLElement[];
+      for (const row of rows) {
+        row.classList.toggle("selected", row.dataset.venueKey === selectedKey);
+      }
+    };
+
+    render = () => {
       const filters: VenueSearchFilters = {
-        kind: kindSelect.value as "" | CCFKind,
-        rank: rankSelect.value as "" | CCFRank,
-        category: categorySelect.value,
+        kind: kindFilter,
+        rank: rankFilter,
+        category: categoryFilter,
       };
       currentOptions = searchVenueOptions(queryInput.value, filters, 40);
       if (
@@ -476,14 +702,16 @@ export async function openManualVenueSelector(
 
       for (const option of currentOptions) {
         const venue = option.venue;
-        const button = createHtmlElement<HTMLButtonElement>(doc, "button");
-        button.type = "button";
-        button.className =
+        const row = createHtmlElement<HTMLDivElement>(doc, "div");
+        row.className =
           "ccf-option" +
           (selectedVenue && venueKey(selectedVenue) === venueKey(venue)
             ? " selected"
             : "");
-        button.title = venue.fullName;
+        row.dataset.venueKey = venueKey(venue);
+        row.title = venue.fullName;
+        row.setAttribute("role", "button");
+        row.setAttribute("tabindex", "0");
 
         const line = createHtmlElement<HTMLDivElement>(doc, "div");
         line.className = "ccf-option-line";
@@ -492,6 +720,11 @@ export async function openManualVenueSelector(
         rank.className = `ccf-rank-pill ccf-rank-${venue.rank.toLowerCase()}`;
         rank.textContent = `CCF ${venue.rank}`;
         line.appendChild(rank);
+
+        const abbr = createHtmlElement<HTMLSpanElement>(doc, "span");
+        abbr.className = "ccf-venue-abbr";
+        abbr.textContent = venue.abbr;
+        line.appendChild(abbr);
 
         const type = createHtmlElement<HTMLSpanElement>(doc, "span");
         type.className = "ccf-venue-meta";
@@ -502,11 +735,6 @@ export async function openManualVenueSelector(
         category.className = "ccf-venue-meta";
         category.textContent = venue.category;
         line.appendChild(category);
-
-        const abbr = createHtmlElement<HTMLSpanElement>(doc, "span");
-        abbr.className = "ccf-venue-abbr";
-        abbr.textContent = venue.abbr;
-        line.appendChild(abbr);
 
         const fullName = createHtmlElement<HTMLSpanElement>(doc, "span");
         fullName.className = "ccf-venue-full";
@@ -519,24 +747,37 @@ export async function openManualVenueSelector(
           fullName.textContent = `${venue.fullName} · 别名：${aliasPreview}`;
         }
 
-        button.appendChild(line);
-        button.appendChild(fullName);
-        button.addEventListener("click", () => {
+        row.appendChild(line);
+        row.appendChild(fullName);
+        row.addEventListener("click", () => {
           selectedVenue = venue;
-          render();
+          markSelection();
         });
-        button.addEventListener("dblclick", () => {
+        row.addEventListener("dblclick", () => {
           selectedVenue = venue;
           applySelection();
         });
-        list.appendChild(button);
+        row.addEventListener("keydown", (event) => {
+          const keyboardEvent = event as KeyboardEvent;
+          if (keyboardEvent.key === "Enter" && applySelection()) {
+            keyboardEvent.preventDefault();
+          }
+          if (keyboardEvent.key === " ") {
+            keyboardEvent.preventDefault();
+            selectedVenue = venue;
+            markSelection();
+          }
+        });
+        list.appendChild(row);
       }
     };
 
     queryInput.addEventListener("input", render);
-    kindSelect.addEventListener("change", render);
-    rankSelect.addEventListener("change", render);
-    categorySelect.addEventListener("change", render);
+    doc.addEventListener("click", (event) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.(".ccf-filter")) return;
+      closeFilterMenus();
+    });
     queryInput.addEventListener("keydown", (event) => {
       const keyboardEvent = event as KeyboardEvent;
       if (keyboardEvent.key === "Enter" && applySelection()) {
