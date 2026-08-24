@@ -1,5 +1,5 @@
 export type CCFKind = "conference" | "journal";
-export type CCFRank = "A" | "B" | "C";
+export type CCFRank = "A" | "B" | "C" | "T1" | "T2" | "T3";
 
 export interface CCFVenue {
   kind: CCFKind;
@@ -8,6 +8,10 @@ export interface CCFVenue {
   rank: CCFRank;
   category: string;
   aliases?: string[];
+  language?: string;
+  cn?: string;
+  sponsor?: string;
+  sourceIndex?: number;
 }
 
 export interface CCFDataFile {

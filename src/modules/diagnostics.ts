@@ -77,14 +77,18 @@ function explainResult(diagnostics: ItemDiagnostics): string {
   }
 
   if (diagnostics.result.status === "none") {
-    return "原因：候选 venue 未命中当前 CCF 目录，或被 Findings/Companion/Extended Abstracts/Workshop 等严格规则保留为 CCF None。";
+    return "原因：候选 venue 未命中当前本地 CCF 目录（2026 国际 A/B/C + 2025 高质量期刊 T1/T2/T3），或被 Findings/Companion/Extended Abstracts/Workshop 等严格规则保留为 CCF None。";
   }
 
   if (diagnostics.result.status === "preprint") {
     return "原因：检测到 arXiv/preprint 信号，且没有更强的正式 venue 候选。";
   }
 
-  return "原因：候选 venue 命中本地 CCF 2026 目录。";
+  if (diagnostics.result.rank?.startsWith("T")) {
+    return "原因：候选 venue 命中本地 CCF 2025 计算领域高质量科技期刊目录。";
+  }
+
+  return "原因：候选 venue 命中本地 CCF 2026 推荐国际学术会议和期刊目录。";
 }
 
 export function getItemDiagnostics(item: Zotero.Item): ItemDiagnostics {

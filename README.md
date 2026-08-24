@@ -2,12 +2,12 @@
 
 一个面向中文用户的 Zotero 插件，用于在 Zotero 文献列表中离线显示 CCF 推荐会议/期刊等级。
 
-当前版本：`0.1.14`
+当前版本：`0.1.15`
 
 ## 功能
 
-- 在 Zotero 文献列表中增加 `CCF` 列，显示 `CCF A/B/C`、`CCF None`、`Preprint`、`Unknown`。
-- 基于本地 CCF 2026 推荐目录离线匹配，不依赖 Semantic Scholar、DBLP 或其他联网 API。
+- 在 Zotero 文献列表中增加 `CCF` 列，显示 `CCF A/B/C`、`CCF T1/T2/T3`、`CCF None`、`Preprint`、`Unknown`。
+- 基于本地 CCF 2026 国际推荐目录和 2025 计算领域高质量科技期刊目录离线匹配，不依赖 Semantic Scholar、DBLP 或其他联网 API。
 - 支持常见会议/期刊字段、缩写、Proceedings 长名称、ACL Anthology DOI/URL、IEEE DOI 前缀等线索。
 - 支持右键批量刷新、取消当前刷新、只刷新 `Unknown / CCF None`、清除缓存后重新识别、显示识别诊断。
 - 支持手动搜索并指定 CCF 来源、按分类浏览候选、忽略条目、恢复自动匹配。
@@ -59,6 +59,8 @@ V0.1.13 起，刷新完成后的列表重绘和进度窗口更新如果遇到 Zo
 - `Findings of ACL/EMNLP`：保持 `CCF None`，不会自动升成 ACL/EMNLP 主会。
 - `INFOCOM`、`WWW`、`NAACL` 等长 proceedings 名称会归一化识别。
 - `TOIS`、`TOSEM`、`TIST`、`TOMM`、`TKDD`、`TWEB`、`TOCHI`、`PACMHCI` 等 ACM 缩写期刊/Proceedings 形式会按 CCF 目录匹配。
+- `电子学报`、`计算机学报` 等中文期刊会按 CCF 2025 计算领域高质量科技期刊目录显示为 `CCF T1/T2/T3`，例如 `电子学报` -> `CCF T1 | 电子学报`。
+- `CCF A/B/C` 与 `CCF T1/T2/T3` 来自两套不同目录；`T1/T2/T3` 不等同于国际目录里的 `A/B/C`。
 - `Companion Proceedings`、`Extended Abstracts`、`Workshop(s)` 默认不会自动提升为主会；真实 CCF Workshop 条目仍可匹配。
 - IEEE DOI 前缀可作为 venue 线索：例如 `10.1109/INFOCOM...` 可识别为 `INFOCOM`，`10.1109/ICMISI...` 会显示 `CCF None | ICMISI`。
 - `CCF None` 只表示“不在当前 CCF 推荐目录中”，不等同于“低质量”或“野鸡会议”。
@@ -66,7 +68,8 @@ V0.1.13 起，刷新完成后的列表重绘和进度窗口更新如果遇到 Zo
 
 ## 数据来源
 
-- CCF 目录数据基于 CCF 2026 推荐会议和期刊目录整理。
+- 国际会议/期刊 A/B/C 数据基于 CCF 2026 推荐国际学术会议和期刊目录整理。
+- 中文/国内高质量期刊 T1/T2/T3 数据基于 CCF 2025 计算领域高质量科技期刊分级目录整理。
 - 初始结构参考了开源项目 `CCF-Rank` 的数据组织方式，并对本地 CCF 官方 PDF 进行了人工/脚本审计。
 - 本插件不是 CCF 官方项目，目录数据可能存在整理误差；如发现问题，欢迎提交 issue。
 

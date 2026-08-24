@@ -1,4 +1,5 @@
 import ccfData from "../data/ccf-2026.json";
+import highQualityJournalData from "../data/ccf-high-quality-journals-2025.json";
 import {
   CCFDataFile,
   CCFKind,
@@ -14,8 +15,15 @@ interface IndexedVenue {
   meaningfulTokens: Set<string>;
 }
 
-const data = ccfData as CCFDataFile;
-const MATCHER_VERSION = "0.1.10-ccf-accuracy";
+const internationalData = ccfData as CCFDataFile;
+const chineseJournalData = highQualityJournalData as CCFDataFile;
+const data: CCFDataFile = {
+  version: `${internationalData.version}+${chineseJournalData.version}`,
+  updateDate: chineseJournalData.updateDate,
+  source: `${internationalData.source}; ${chineseJournalData.source}`,
+  venues: [...internationalData.venues, ...chineseJournalData.venues],
+};
+const MATCHER_VERSION = "0.1.15-chinese-t-rank";
 
 const genericTokens = new Set([
   "acm",
@@ -78,7 +86,7 @@ function normalizeText(value: string): string {
     .replace(/\b([a-z]+)\s*['’]\d{2,4}\b/g, "$1")
     .replace(/[“”"'’`]/g, "")
     .replace(/&/g, " and ")
-    .replace(/[^a-z0-9+/\-\s]/g, " ")
+    .replace(/[^a-z0-9+/\-\s\u4e00-\u9fff]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return expandVenueTokens(normalized);
@@ -107,6 +115,7 @@ function stripBoilerplate(value: string): string {
 function getStrictNonMainMarkers(value: string): Set<string> {
   const normalized = normalizeText(value);
   const markers = new Set<string>();
+  if (/\bfindings\b/.test(normalized)) markers.add("findings");
   if (/\bworkshops?\b/.test(normalized)) markers.add("workshop");
   if (/\bcompanion\b/.test(normalized)) markers.add("companion");
   if (/\bextended abstracts?\b/.test(normalized)) markers.add("extended");
@@ -222,11 +231,23 @@ function tokenizeMeaningful(value: string): Set<string> {
   );
 }
 
+function containsCjk(value: string): boolean {
+  return /[\u4e00-\u9fff]/.test(value);
+}
+
 function generateAliases(venue: CCFVenue): string[] {
   const aliases = new Set<string>();
   const rawAliases = [venue.abbr, venue.fullName, ...(venue.aliases || [])];
 
   for (const alias of rawAliases) {
+    const normalizedText = normalizeText(alias);
+    if (normalizedText) {
+      aliases.add(normalizedText);
+      if (!containsCjk(normalizedText)) {
+        aliases.add(normalizedText.replace(/\s+/g, ""));
+      }
+    }
+
     const normalized = normalizeAbbr(alias);
     if (!normalized) continue;
     aliases.add(normalized);
@@ -319,6 +340,9 @@ function deriveCanonicalVenueQueries(value: string): string[] {
 function containsAlias(normalizedCandidate: string, alias: string): boolean {
   const normalizedAlias = normalizeText(alias);
   if (!normalizedAlias) return false;
+  if (containsCjk(normalizedAlias)) {
+    return normalizedCandidate === normalizedAlias;
+  }
   const escaped = normalizedAlias
     .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
     .replace(/\s+/g, "\\s+");
@@ -372,7 +396,12 @@ function scoreVenue(
   }
 
   const candidateAbbr = normalizeAbbr(candidate);
+  const seenAliases = new Set<string>();
   for (const alias of indexed.aliases) {
+    const aliasKey = `${normalizeText(alias)}|${normalizeAbbr(alias)}`;
+    if (seenAliases.has(aliasKey)) continue;
+    seenAliases.add(aliasKey);
+
     if (!kindMismatch && candidateAbbr === alias) {
       score += 950;
     } else if (
@@ -455,18 +484,31 @@ function findVenueFromQuery(
   const normalized = normalizeText(stripped);
   const abbr = normalizeAbbr(stripped);
 
-  const exactAlias = pickBest(index.aliasMap.get(abbr) || [], stripped, kindHint);
+  const exactAlias = abbr
+    ? pickBest(index.aliasMap.get(abbr) || [], stripped, kindHint)
+    : undefined;
   if (exactAlias) {
     return toMatchResult(exactAlias, venueText, 1);
   }
 
-  const compactAlias = pickBest(
-    index.aliasMap.get(abbr.replace(/\s+/g, "")) || [],
+  const compactAlias = abbr
+    ? pickBest(
+        index.aliasMap.get(abbr.replace(/\s+/g, "")) || [],
+        stripped,
+        kindHint,
+      )
+    : undefined;
+  if (compactAlias) {
+    return toMatchResult(compactAlias, venueText, 0.98);
+  }
+
+  const exactTextAlias = pickBest(
+    index.aliasMap.get(normalized) || [],
     stripped,
     kindHint,
   );
-  if (compactAlias) {
-    return toMatchResult(compactAlias, venueText, 0.98);
+  if (exactTextAlias) {
+    return toMatchResult(exactTextAlias, venueText, 0.98);
   }
 
   const exactFull = pickBest(

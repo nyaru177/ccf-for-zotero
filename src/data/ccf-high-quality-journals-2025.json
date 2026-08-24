@@ -1,0 +1,1054 @@
+{
+  "version": "CCF-HQ-Journals-2025-v1-official-page",
+  "updateDate": "2025-04-16",
+  "source": "https://www.ccf.org.cn/ccftjgjxskwml/",
+  "description": "CCF 计算领域高质量科技期刊分级目录（2025），T1/T2/T3；与 CCF 推荐国际学术刊物 ABC 类为两个单独列表，不具有等效关系。",
+  "venues": [
+    {
+      "kind": "journal",
+      "abbr": "Big Data Mining and Analytics",
+      "fullName": "Big Data Mining and Analytics",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "大数据挖掘与分析（英文） Big Data Mining and Analytics",
+        "大数据挖掘与分析",
+        "Big Data Mining and Analytics",
+        "0-1514/G2"
+      ],
+      "language": "英文",
+      "cn": "0-1514/G2",
+      "sponsor": "清华大学",
+      "sourceIndex": 1
+    },
+    {
+      "kind": "journal",
+      "abbr": "Chinese Journal of Electronics",
+      "fullName": "Chinese Journal of Electronics",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "电子学报（英文） Chinese Journal of Electronics",
+        "Chinese Journal of Electronics",
+        "10-1284/TN"
+      ],
+      "language": "英文",
+      "cn": "10-1284/TN",
+      "sponsor": "中国电子学会、电子工业出版社",
+      "sourceIndex": 2
+    },
+    {
+      "kind": "journal",
+      "abbr": "Cybersecurity",
+      "fullName": "Cybersecurity",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "网络空间安全科学与技术（英文） Cybersecurity",
+        "网络空间安全科学与技术",
+        "Cybersecurity",
+        "10-1537/TN"
+      ],
+      "language": "英文",
+      "cn": "10-1537/TN",
+      "sponsor": "中国科学院信息工程研究所、中国科技出版传媒股份有限公司",
+      "sourceIndex": 3
+    },
+    {
+      "kind": "journal",
+      "abbr": "Frontiers of Computer Science",
+      "fullName": "Frontiers of Computer Science",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机科学前沿（英文版） Frontiers of Computer Science",
+        "计算机科学前沿",
+        "Frontiers of Computer Science",
+        "10-1014/TP"
+      ],
+      "language": "英文",
+      "cn": "10-1014/TP",
+      "sponsor": "高等教育出版社有限公司、北京航空航天大学",
+      "sourceIndex": 4
+    },
+    {
+      "kind": "journal",
+      "abbr": "Frontiers of Information Technology & Electronic Engineering",
+      "fullName": "Frontiers of Information Technology & Electronic Engineering",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "信息与电子工程前沿（英文） Frontiers of Information Technology & Electronic Engineering",
+        "信息与电子工程前沿",
+        "Frontiers of Information Technology & Electronic Engineering",
+        "33-1389/TP"
+      ],
+      "language": "英文",
+      "cn": "33-1389/TP",
+      "sponsor": "中国工程院、浙江大学",
+      "sourceIndex": 5
+    },
+    {
+      "kind": "journal",
+      "abbr": "Journal of Automatica Sinica",
+      "fullName": "Journal of Automatica Sinica",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "自动化学报（英文版） Journal of Automatica Sinica",
+        "Journal of Automatica Sinica",
+        "10-1193/TP"
+      ],
+      "language": "英文",
+      "cn": "10-1193/TP",
+      "sponsor": "中国自动化学会、中国科学院自动化研究所、中国科技出版传媒股份有限公司",
+      "sourceIndex": 6
+    },
+    {
+      "kind": "journal",
+      "abbr": "Journal of Computer Science and Technology",
+      "fullName": "Journal of Computer Science and Technology",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机科学技术学报（英文） Journal of Computer Science and Technology",
+        "计算机科学技术学报",
+        "Journal of Computer Science and Technology",
+        "11-2296/TP"
+      ],
+      "language": "英文",
+      "cn": "11-2296/TP",
+      "sponsor": "中科院计算所、中国计算机学会",
+      "sourceIndex": 7
+    },
+    {
+      "kind": "journal",
+      "abbr": "SCIENTIA SINICA Informationis",
+      "fullName": "SCIENTIA SINICA Informationis",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "中国科学：信息科学（英文版） SCIENTIA SINICA Informationis",
+        "SCIENTIA SINICA Informationis",
+        "11-5847/TP"
+      ],
+      "language": "英文",
+      "cn": "11-5847/TP",
+      "sponsor": "中国科学院、国家自然科学基金委员会",
+      "sourceIndex": 8
+    },
+    {
+      "kind": "journal",
+      "abbr": "电子与信息学报",
+      "fullName": "电子与信息学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "电子与信息学报",
+        "11-4494/TN"
+      ],
+      "language": "中文",
+      "cn": "11-4494/TN",
+      "sponsor": "中国科学院空天信息创新研究院、国家自然科学基金委员会信息科学部",
+      "sourceIndex": 9
+    },
+    {
+      "kind": "journal",
+      "abbr": "电子学报",
+      "fullName": "电子学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "电子学报",
+        "11-2087/TN"
+      ],
+      "language": "中文",
+      "cn": "11-2087/TN",
+      "sponsor": "中国电子学会",
+      "sourceIndex": 10
+    },
+    {
+      "kind": "journal",
+      "abbr": "科学通报",
+      "fullName": "科学通报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "科学通报",
+        "11-1784/N"
+      ],
+      "language": "中文",
+      "cn": "11-1784/N",
+      "sponsor": "中国科学院、国家自然科学基金委员会",
+      "sourceIndex": 11
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机辅助设计与图形学学报",
+      "fullName": "计算机辅助设计与图形学学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机辅助设计与图形学学报",
+        "11-2925/TP"
+      ],
+      "language": "中文",
+      "cn": "11-2925/TP",
+      "sponsor": "中国计算机学会、北京中科期刊出版有限公司",
+      "sourceIndex": 12
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机学报",
+      "fullName": "计算机学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机学报",
+        "11-1826/TP"
+      ],
+      "language": "中文",
+      "cn": "11-1826/TP",
+      "sponsor": "中国科学院计算技术研究所、中国计算机学会",
+      "sourceIndex": 13
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机研究与发展",
+      "fullName": "计算机研究与发展",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机研究与发展",
+        "11-1777/TP"
+      ],
+      "language": "中文",
+      "cn": "11-1777/TP",
+      "sponsor": "中国科学院计算技术研究所；中国计算机学会",
+      "sourceIndex": 14
+    },
+    {
+      "kind": "journal",
+      "abbr": "软件学报",
+      "fullName": "软件学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "软件学报",
+        "11-2560/TP"
+      ],
+      "language": "中文",
+      "cn": "11-2560/TP",
+      "sponsor": "中国科学院软件研究所、中国计算机学会",
+      "sourceIndex": 15
+    },
+    {
+      "kind": "journal",
+      "abbr": "通信学报",
+      "fullName": "通信学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "通信学报",
+        "11-2102/TN"
+      ],
+      "language": "中文",
+      "cn": "11-2102/TN",
+      "sponsor": "中国通信学会",
+      "sourceIndex": 16
+    },
+    {
+      "kind": "journal",
+      "abbr": "自动化学报",
+      "fullName": "自动化学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "自动化学报",
+        "11-2109/TP"
+      ],
+      "language": "中文",
+      "cn": "11-2109/TP",
+      "sponsor": "中国科学院自动化研究所、中国自动化学会",
+      "sourceIndex": 17
+    },
+    {
+      "kind": "journal",
+      "abbr": "中国科学：信息科学",
+      "fullName": "中国科学：信息科学",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "中国科学：信息科学",
+        "11-5846/TP"
+      ],
+      "language": "中文",
+      "cn": "11-5846/TP",
+      "sponsor": "中国科学院、国家自然科学基金委员会",
+      "sourceIndex": 18
+    },
+    {
+      "kind": "journal",
+      "abbr": "中文信息学报",
+      "fullName": "中文信息学报",
+      "rank": "T1",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "中文信息学报",
+        "11-2325/N"
+      ],
+      "language": "中文",
+      "cn": "11-2325/N",
+      "sponsor": "中国中文信息学会、中国科学院软件研究所",
+      "sourceIndex": 19
+    },
+    {
+      "kind": "journal",
+      "abbr": "China Communications",
+      "fullName": "China Communications",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "中国通信（英文） China Communications",
+        "中国通信",
+        "China Communications",
+        "11-5439/TN"
+      ],
+      "language": "英文",
+      "cn": "11-5439/TN",
+      "sponsor": "中国通信学会",
+      "sourceIndex": 1
+    },
+    {
+      "kind": "journal",
+      "abbr": "Journal of Computational Mathematics",
+      "fullName": "Journal of Computational Mathematics",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算数学 (英文) Journal of Computational Mathematics",
+        "计算数学",
+        "Journal of Computational Mathematics",
+        "11-2126/O1"
+      ],
+      "language": "英文",
+      "cn": "11-2126/O1",
+      "sponsor": "中科院数学与系统科学研究院",
+      "sourceIndex": 2
+    },
+    {
+      "kind": "journal",
+      "abbr": "Virtual Reality & Intelligent Hardware",
+      "fullName": "Virtual Reality & Intelligent Hardware",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "虚拟现实与智能硬件（英文） Virtual Reality & Intelligent Hardware",
+        "虚拟现实与智能硬件",
+        "Virtual Reality & Intelligent Hardware",
+        "10-1561/TP"
+      ],
+      "language": "英文",
+      "cn": "10-1561/TP",
+      "sponsor": "中国科技出版传媒股份有限公司、北京航空航天大学",
+      "sourceIndex": 3
+    },
+    {
+      "kind": "journal",
+      "abbr": "ZTE Communications",
+      "fullName": "ZTE Communications",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "中兴通讯技术（英文） ZTE Communications",
+        "ZTE Communications",
+        "34-1294/TN"
+      ],
+      "language": "英文",
+      "cn": "34-1294/TN",
+      "sponsor": "时代出版传媒股份有限公司、深圳航天广宇工业有限公司",
+      "sourceIndex": 4
+    },
+    {
+      "kind": "journal",
+      "abbr": "大数据",
+      "fullName": "大数据",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "大数据",
+        "10-1321/G2"
+      ],
+      "language": "中文",
+      "cn": "10-1321/G2",
+      "sponsor": "人民邮电出版社有限公司",
+      "sourceIndex": 5
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机教育",
+      "fullName": "计算机教育",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机教育",
+        "11-5006/TP"
+      ],
+      "language": "中文",
+      "cn": "11-5006/TP",
+      "sponsor": "清华大学",
+      "sourceIndex": 6
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机科学",
+      "fullName": "计算机科学",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机科学",
+        "50-1075/TP"
+      ],
+      "language": "中文",
+      "cn": "50-1075/TP",
+      "sponsor": "重庆西南信息有限公司",
+      "sourceIndex": 7
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机科学与探索",
+      "fullName": "计算机科学与探索",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机科学与探索",
+        "11-5602/TP"
+      ],
+      "language": "中文",
+      "cn": "11-5602/TP",
+      "sponsor": "华北计算技术研究所",
+      "sourceIndex": 8
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机工程",
+      "fullName": "计算机工程",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机工程",
+        "31-1289/TP"
+      ],
+      "language": "中文",
+      "cn": "31-1289/TP",
+      "sponsor": "华东计算技术研究所、上海计算机学会",
+      "sourceIndex": 9
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机工程与科学",
+      "fullName": "计算机工程与科学",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机工程与科学",
+        "43-1258/TP"
+      ],
+      "language": "中文",
+      "cn": "43-1258/TP",
+      "sponsor": "国防科技大学计算机学院",
+      "sourceIndex": 10
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机工程与应用",
+      "fullName": "计算机工程与应用",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机工程与应用",
+        "11-2127/TP"
+      ],
+      "language": "中文",
+      "cn": "11-2127/TP",
+      "sponsor": "华北计算技术研究所",
+      "sourceIndex": 11
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机系统应用",
+      "fullName": "计算机系统应用",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机系统应用",
+        "11-2854/TP"
+      ],
+      "language": "中文",
+      "cn": "11-2854/TP",
+      "sponsor": "中国科学院软件研究所",
+      "sourceIndex": 12
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机应用",
+      "fullName": "计算机应用",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机应用",
+        "51-1307/TP"
+      ],
+      "language": "中文",
+      "cn": "51-1307/TP",
+      "sponsor": "四川省计算机学会、中国科学院成都分院",
+      "sourceIndex": 13
+    },
+    {
+      "kind": "journal",
+      "abbr": "密码学报",
+      "fullName": "密码学报",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "密码学报",
+        "10-1195/TN"
+      ],
+      "language": "中文",
+      "cn": "10-1195/TN",
+      "sponsor": "中国密码学会、北京信息科学技术研究院、科学普及出版社",
+      "sourceIndex": 14
+    },
+    {
+      "kind": "journal",
+      "abbr": "模式识别与人工智能",
+      "fullName": "模式识别与人工智能",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "模式识别与人工智能",
+        "34-1089/TP"
+      ],
+      "language": "中文",
+      "cn": "34-1089/TP",
+      "sponsor": "中国自动化学会、国家智能计算机研究开发中心、中国科学院合肥智能机械研究所",
+      "sourceIndex": 15
+    },
+    {
+      "kind": "journal",
+      "abbr": "物联网学报",
+      "fullName": "物联网学报",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "物联网学报",
+        "10-1491/TP"
+      ],
+      "language": "中文",
+      "cn": "10-1491/TP",
+      "sponsor": "人民邮电出版社有限公司",
+      "sourceIndex": 16
+    },
+    {
+      "kind": "journal",
+      "abbr": "网络与信息安全学报",
+      "fullName": "网络与信息安全学报",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "网络与信息安全学报",
+        "10-1366/TP"
+      ],
+      "language": "中文",
+      "cn": "10-1366/TP",
+      "sponsor": "人民邮电出版社有限公司",
+      "sourceIndex": 17
+    },
+    {
+      "kind": "journal",
+      "abbr": "小型微型计算机系统",
+      "fullName": "小型微型计算机系统",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "小型微型计算机系统",
+        "21-1106/TP"
+      ],
+      "language": "中文",
+      "cn": "21-1106/TP",
+      "sponsor": "中国科学院沈阳计算技术研究所",
+      "sourceIndex": 18
+    },
+    {
+      "kind": "journal",
+      "abbr": "系统仿真学报",
+      "fullName": "系统仿真学报",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "系统仿真学报",
+        "11-3092/V"
+      ],
+      "language": "中文",
+      "cn": "11-3092/V",
+      "sponsor": "北京仿真中心、中国仿真学会",
+      "sourceIndex": 19
+    },
+    {
+      "kind": "journal",
+      "abbr": "信息安全学报",
+      "fullName": "信息安全学报",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "信息安全学报",
+        "10-1380/TN"
+      ],
+      "language": "中文",
+      "cn": "10-1380/TN",
+      "sponsor": "中国科学院信息工程研究所、中国科技出版传媒股份有限公司",
+      "sourceIndex": 20
+    },
+    {
+      "kind": "journal",
+      "abbr": "智能系统学报",
+      "fullName": "智能系统学报",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "智能系统学报",
+        "23-1538/TP"
+      ],
+      "language": "中文",
+      "cn": "23-1538/TP",
+      "sponsor": "哈尔滨工程大学、中国人工智能学会",
+      "sourceIndex": 21
+    },
+    {
+      "kind": "journal",
+      "abbr": "中国图象图形学报",
+      "fullName": "中国图象图形学报",
+      "rank": "T2",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "中国图象图形学报",
+        "11-3758/TB"
+      ],
+      "language": "中文",
+      "cn": "11-3758/TB",
+      "sponsor": "中国科学院空天信息创新研究院、中国图象图形学学会、北京应用物理与计算数学研究所",
+      "sourceIndex": 22
+    },
+    {
+      "kind": "journal",
+      "abbr": "Optoelectronics Letters",
+      "fullName": "Optoelectronics Letters",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "光电子快报（英文） Optoelectronics Letters",
+        "光电子快报",
+        "Optoelectronics Letters",
+        "12-1370/TN"
+      ],
+      "language": "英文",
+      "cn": "12-1370/TN",
+      "sponsor": "天津理工大学",
+      "sourceIndex": 1
+    },
+    {
+      "kind": "journal",
+      "abbr": "Quantitative Biology",
+      "fullName": "Quantitative Biology",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "定量生物学（英文） Quantitative Biology",
+        "定量生物学",
+        "Quantitative Biology",
+        "10-1082/Q"
+      ],
+      "language": "英文",
+      "cn": "10-1082/Q",
+      "sponsor": "高等教育出版社有限公司、清华大学",
+      "sourceIndex": 2
+    },
+    {
+      "kind": "journal",
+      "abbr": "Visual Computing for Industry, Biomedicine, and Art",
+      "fullName": "Visual Computing for Industry, Biomedicine, and Art",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "工医艺的可视计算（英文） Visual Computing for Industry, Biomedicine, and Art",
+        "工医艺的可视计算",
+        "Visual Computing for Industry, Biomedicine, and Art",
+        "10-1521/TP"
+      ],
+      "language": "英文",
+      "cn": "10-1521/TP",
+      "sponsor": "中国图学学会",
+      "sourceIndex": 3
+    },
+    {
+      "kind": "journal",
+      "abbr": "保密科学技术",
+      "fullName": "保密科学技术",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "保密科学技术",
+        "11-5948/TP"
+      ],
+      "language": "中文",
+      "cn": "11-5948/TP",
+      "sponsor": "国家保密科技测评中心",
+      "sourceIndex": 4
+    },
+    {
+      "kind": "journal",
+      "abbr": "高性能计算机技术",
+      "fullName": "高性能计算机技术",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "高性能计算机技术",
+        "32-1679/TP"
+      ],
+      "language": "中文",
+      "cn": "32-1679/TP",
+      "sponsor": "总参第五十六研究所",
+      "sourceIndex": 5
+    },
+    {
+      "kind": "journal",
+      "abbr": "航空计算技术",
+      "fullName": "航空计算技术",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "航空计算技术",
+        "61-1276/TP"
+      ],
+      "language": "中文",
+      "cn": "61-1276/TP",
+      "sponsor": "中国航空工业集团公司西安航空计算技术研究所",
+      "sourceIndex": 6
+    },
+    {
+      "kind": "journal",
+      "abbr": "集成电路与嵌入式系统",
+      "fullName": "集成电路与嵌入式系统",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "集成电路与嵌入式系统",
+        "10-1910/V"
+      ],
+      "language": "中文",
+      "cn": "10-1910/V",
+      "sponsor": "北京航空航天大学",
+      "sourceIndex": 7
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机仿真",
+      "fullName": "计算机仿真",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机仿真",
+        "11-3724/TP"
+      ],
+      "language": "中文",
+      "cn": "11-3724/TP",
+      "sponsor": "北京控制与电子技术研究所",
+      "sourceIndex": 8
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机工程与设计",
+      "fullName": "计算机工程与设计",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机工程与设计",
+        "11-1775/TP"
+      ],
+      "language": "中文",
+      "cn": "11-1775/TP",
+      "sponsor": "中国航天科工集团第二研究院七 O六所",
+      "sourceIndex": 9
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机集成制造系统",
+      "fullName": "计算机集成制造系统",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机集成制造系统",
+        "11-5946/TP"
+      ],
+      "language": "中文",
+      "cn": "11-5946/TP",
+      "sponsor": "中国兵器工业集团第二一 ○研究所",
+      "sourceIndex": 10
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机技术与发展",
+      "fullName": "计算机技术与发展",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机技术与发展",
+        "61-1450/TP"
+      ],
+      "language": "中文",
+      "cn": "61-1450/TP",
+      "sponsor": "陕西省计算机学会",
+      "sourceIndex": 11
+    },
+    {
+      "kind": "journal",
+      "abbr": "机器人",
+      "fullName": "机器人",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "机器人",
+        "21-1137/TP"
+      ],
+      "language": "中文",
+      "cn": "21-1137/TP",
+      "sponsor": "中国科学院沈阳自动化研究所、中国自动化学会",
+      "sourceIndex": 12
+    },
+    {
+      "kind": "journal",
+      "abbr": "计算机应用研究",
+      "fullName": "计算机应用研究",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "计算机应用研究",
+        "51-1196/TP"
+      ],
+      "language": "中文",
+      "cn": "51-1196/TP",
+      "sponsor": "四川省计算机研究院",
+      "sourceIndex": 13
+    },
+    {
+      "kind": "journal",
+      "abbr": "密码与信息安全学报",
+      "fullName": "密码与信息安全学报",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "密码与信息安全学报",
+        "41-1415/TP"
+      ],
+      "language": "中文",
+      "cn": "41-1415/TP",
+      "sponsor": "信息工程大学科研部",
+      "sourceIndex": 14
+    },
+    {
+      "kind": "journal",
+      "abbr": "软件导刊",
+      "fullName": "软件导刊",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "软件导刊",
+        "42-1671/TP"
+      ],
+      "language": "中文",
+      "cn": "42-1671/TP",
+      "sponsor": "湖北省科技信息研究院",
+      "sourceIndex": 15
+    },
+    {
+      "kind": "journal",
+      "abbr": "软件和集成电路",
+      "fullName": "软件和集成电路",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "软件和集成电路",
+        "10-1339/TN"
+      ],
+      "language": "中文",
+      "cn": "10-1339/TN",
+      "sponsor": "中国电子信息产业发展研究院、赛迪工业和信息化研究院（集团）有限公司",
+      "sourceIndex": 16
+    },
+    {
+      "kind": "journal",
+      "abbr": "数据与计算发展前沿",
+      "fullName": "数据与计算发展前沿",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "数据与计算发展前沿",
+        "10-1649/TP"
+      ],
+      "language": "中文",
+      "cn": "10-1649/TP",
+      "sponsor": "中国科学院计算机网络信息中心、中国科技出版传媒股份有限公司",
+      "sourceIndex": 17
+    },
+    {
+      "kind": "journal",
+      "abbr": "生物信息学",
+      "fullName": "生物信息学",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "生物信息学",
+        "23-1513/Q"
+      ],
+      "language": "中文",
+      "cn": "23-1513/Q",
+      "sponsor": "哈尔滨工业大学",
+      "sourceIndex": 18
+    },
+    {
+      "kind": "journal",
+      "abbr": "数值计算与计算机应用",
+      "fullName": "数值计算与计算机应用",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "数值计算与计算机应用",
+        "11-2124/TP"
+      ],
+      "language": "中文",
+      "cn": "11-2124/TP",
+      "sponsor": "中科院数学与系统科学研究院",
+      "sourceIndex": 19
+    },
+    {
+      "kind": "journal",
+      "abbr": "图学学报",
+      "fullName": "图学学报",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "图学学报",
+        "10-1034/T"
+      ],
+      "language": "中文",
+      "cn": "10-1034/T",
+      "sponsor": "中国图学学会",
+      "sourceIndex": 20
+    },
+    {
+      "kind": "journal",
+      "abbr": "微电子学与计算机",
+      "fullName": "微电子学与计算机",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "微电子学与计算机",
+        "61-1123/TN"
+      ],
+      "language": "中文",
+      "cn": "61-1123/TN",
+      "sponsor": "西安微电子技术研究所",
+      "sourceIndex": 21
+    },
+    {
+      "kind": "journal",
+      "abbr": "网络空间安全",
+      "fullName": "网络空间安全",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "网络空间安全",
+        "10-1421/TP"
+      ],
+      "language": "中文",
+      "cn": "10-1421/TP",
+      "sponsor": "中国电子信息产业发展研究院、赛迪工业和信息化研究院（集团）有限公司",
+      "sourceIndex": 22
+    },
+    {
+      "kind": "journal",
+      "abbr": "信号处理",
+      "fullName": "信号处理",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "信号处理",
+        "11-2406/TN"
+      ],
+      "language": "中文",
+      "cn": "11-2406/TN",
+      "sponsor": "中国电子学会、中电新一代（北京）信息技术研究院",
+      "sourceIndex": 23
+    },
+    {
+      "kind": "journal",
+      "abbr": "信息安全研究",
+      "fullName": "信息安全研究",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "信息安全研究",
+        "10-1345/TP"
+      ],
+      "language": "中文",
+      "cn": "10-1345/TP",
+      "sponsor": "国家信息中心",
+      "sourceIndex": 24
+    },
+    {
+      "kind": "journal",
+      "abbr": "信息网络安全",
+      "fullName": "信息网络安全",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "信息网络安全",
+        "31-1859/TN"
+      ],
+      "language": "中文",
+      "cn": "31-1859/TN",
+      "sponsor": "公安部第三研究所、中国计算机学会",
+      "sourceIndex": 25
+    },
+    {
+      "kind": "journal",
+      "abbr": "应用科学学报",
+      "fullName": "应用科学学报",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "应用科学学报",
+        "31-1404/N"
+      ],
+      "language": "中文",
+      "cn": "31-1404/N",
+      "sponsor": "上海大学、中国科学院上海技术物理研究所",
+      "sourceIndex": 26
+    },
+    {
+      "kind": "journal",
+      "abbr": "中兴通讯技术",
+      "fullName": "中兴通讯技术",
+      "rank": "T3",
+      "category": "计算领域高质量科技期刊",
+      "aliases": [
+        "中兴通讯技术",
+        "34-1228/TN"
+      ],
+      "language": "中文",
+      "cn": "34-1228/TN",
+      "sponsor": "时代出版传媒股份有限公司、深圳航天广宇工业有限公司",
+      "sourceIndex": 27
+    }
+  ]
+}

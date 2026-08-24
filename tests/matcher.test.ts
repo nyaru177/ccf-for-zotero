@@ -38,7 +38,7 @@ function makeItem(
 
 describe("local CCF matcher", () => {
   it("loads the CCF catalog", () => {
-    assert.equal(getVenueCount(), 682);
+    assert.equal(getVenueCount(), 750);
   });
 
   const cases: Array<[string, string, string]> = [
@@ -91,6 +91,36 @@ describe("local CCF matcher", () => {
       assert.equal(result?.abbr, abbr);
     });
   }
+
+  it("matches CCF high-quality Chinese journals without prefix false positives", () => {
+    const dzxb = findVenue("电子学报", "journal");
+    assert.equal(dzxb?.status, "matched");
+    assert.equal(dzxb?.rank, "T1");
+    assert.equal(dzxb?.abbr, "电子学报");
+
+    const cje = findVenue("Chinese Journal of Electronics", "journal");
+    assert.equal(cje?.status, "matched");
+    assert.equal(cje?.rank, "T1");
+    assert.equal(cje?.abbr, "Chinese Journal of Electronics");
+
+    const jsjyy = findVenue("计算机应用", "journal");
+    assert.equal(jsjyy?.status, "matched");
+    assert.equal(jsjyy?.rank, "T2");
+    assert.equal(jsjyy?.abbr, "计算机应用");
+
+    const jsjyyyj = findVenue("计算机应用研究", "journal");
+    assert.equal(jsjyyyj?.status, "matched");
+    assert.equal(jsjyyyj?.rank, "T3");
+    assert.equal(jsjyyyj?.abbr, "计算机应用研究");
+
+    const candidateResult = matchCandidates(
+      [{ value: "电子学报", field: "publicationTitle", kindHint: "journal" }],
+      false,
+    );
+    assert.equal(candidateResult.status, "matched");
+    assert.equal(candidateResult.rank, "T1");
+    assert.equal(candidateResult.abbr, "电子学报");
+  });
 
   it("returns preprint when no venue candidates exist and arXiv is detected", () => {
     const result = matchCandidates([], true);
@@ -550,6 +580,18 @@ describe("local CCF matcher", () => {
     ).some((option) => option.venue.abbr === "ACM MM");
     assert.equal(multimediaConference, true);
 
+    const chineseJournal = searchVenueOptions("电子学报", { kind: "journal" })[0]
+      ?.venue;
+    assert.equal(chineseJournal?.abbr, "电子学报");
+    assert.equal(chineseJournal?.rank, "T1");
+
+    const t1HighQualityJournal = searchVenueOptions(
+      "",
+      { kind: "journal", category: "计算领域高质量科技期刊", rank: "T1" },
+      50,
+    ).some((option) => option.venue.abbr === "电子学报");
+    assert.equal(t1HighQualityJournal, true);
+
     assert.equal(venueToManualResult(acmMM!).source, "manual");
   });
 
@@ -825,5 +867,14 @@ describe("local CCF matcher", () => {
     assert.match(output, /identifier:acl-anthology/);
     assert.match(output, /结果：CCF A \| ACL/);
     assert.match(output, /候选 venue/);
+  });
+
+  it("renders diagnostics for CCF high-quality Chinese journal matches", () => {
+    const output = formatItemDiagnostics(
+      makeItem({ publicationTitle: "电子学报" }, "journalArticle"),
+    );
+
+    assert.match(output, /结果：CCF T1 \| 电子学报/);
+    assert.match(output, /2025 计算领域高质量科技期刊目录/);
   });
 });

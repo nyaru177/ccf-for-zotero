@@ -17,7 +17,14 @@ const kindLabels: Record<CCFKind, string> = {
   journal: "期刊",
 };
 
-const rankOrder: Record<CCFRank, number> = { A: 0, B: 1, C: 2 };
+const rankOrder: Record<CCFRank, number> = {
+  A: 0,
+  T1: 1,
+  B: 2,
+  T2: 3,
+  C: 4,
+  T3: 5,
+};
 
 const categorySearchAliases: Record<string, string[]> = {
   "计算机体系结构/并行与分布计算/存储系统": [
@@ -48,6 +55,15 @@ const categorySearchAliases: Record<string, string[]> = {
     "ubiquitous computing",
   ],
   "交叉/综合/新兴": ["interdisciplinary", "emerging", "general"],
+  计算领域高质量科技期刊: [
+    "chinese journal",
+    "domestic journal",
+    "high quality journal",
+    "high-quality journal",
+    "t1",
+    "t2",
+    "t3",
+  ],
 };
 
 function normalizeSearchText(value: string): string {
@@ -413,6 +429,18 @@ function buildSelectorHtml() {
         background: #fff2cc;
         color: #8a5a00;
       }
+      .ccf-rank-t1 {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .ccf-rank-t2 {
+        background: #e0f2fe;
+        color: #075985;
+      }
+      .ccf-rank-t3 {
+        background: #fef3c7;
+        color: #92400e;
+      }
       .ccf-venue-abbr {
         font-weight: 700;
         color: #111827;
@@ -628,6 +656,9 @@ export async function openManualVenueSelector(
           { value: "A", label: "CCF A" },
           { value: "B", label: "CCF B" },
           { value: "C", label: "CCF C" },
+          { value: "T1", label: "CCF T1" },
+          { value: "T2", label: "CCF T2" },
+          { value: "T3", label: "CCF T3" },
         ],
         () => rankFilter,
         (value) => {

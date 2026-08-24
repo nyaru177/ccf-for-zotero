@@ -8,3 +8,4 @@ tsconfig.tsbuildinfo
 docs/
 scripts/
 work/
+_private/

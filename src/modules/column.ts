@@ -41,6 +41,15 @@ function getBadgeColors(text: string) {
   if (text.startsWith("CCF C |")) {
     return { background: "#fff2cc", color: "#8a5a00", border: "#ead083" };
   }
+  if (text.startsWith("CCF T1 |")) {
+    return { background: "#dcfce7", color: "#166534", border: "#bbf7d0" };
+  }
+  if (text.startsWith("CCF T2 |")) {
+    return { background: "#e0f2fe", color: "#075985", border: "#bae6fd" };
+  }
+  if (text.startsWith("CCF T3 |")) {
+    return { background: "#fef3c7", color: "#92400e", border: "#fde68a" };
+  }
   if (text.startsWith("Preprint |")) {
     return { background: "#edf0f4", color: "#52616b", border: "#d4dae2" };
   }

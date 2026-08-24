@@ -73,7 +73,7 @@ const text = {
 };
 
 const kindOrder: CCFKind[] = ["conference", "journal"];
-const rankOrder: CCFRank[] = ["A", "B", "C"];
+const rankOrder: CCFRank[] = ["A", "B", "C", "T1", "T2", "T3"];
 
 function getSelectedRegularItems(): Zotero.Item[] {
   const items = Zotero.getActiveZoteroPane()?.getSelectedItems() || [];
