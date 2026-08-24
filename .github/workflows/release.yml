@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify and build
+        run: npm run check
+
+      - name: Prepare release assets
+        run: |
+          set -euo pipefail
+          TAG_NAME="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            TAG_NAME="v$(node -p "require('./package.json').version")"
+          fi
+          VERSION="${TAG_NAME#v}"
+          mkdir -p release-assets
+          cp .scaffold/build/ccf-for-zotero.xpi "release-assets/ccf-for-zotero-${VERSION}-zotero10.xpi"
+          cp .scaffold/build/ccf-for-zotero.xpi release-assets/ccf-for-zotero.xpi
+          cp .scaffold/build/update.json release-assets/update.json
+          cp RELEASE_NOTES.md "release-assets/RELEASE_NOTES-${TAG_NAME}.md"
+          git archive --format=zip --output="release-assets/ccf-for-zotero-${TAG_NAME}-source.zip" HEAD
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="${TAG_NAME} 首个公开测试版"
+          if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+            gh release edit "${TAG_NAME}" --title "${TITLE}" --notes-file RELEASE_NOTES.md
+            gh release upload "${TAG_NAME}" release-assets/* --clobber
+          else
+            gh release create "${TAG_NAME}" release-assets/* --title "${TITLE}" --notes-file RELEASE_NOTES.md
+          fi
