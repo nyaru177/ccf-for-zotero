@@ -8,6 +8,24 @@ import {
 } from "./storage";
 import { ItemRankState, MatchResult } from "./types";
 
+export interface RefreshItemsRankOptions {
+  onProgress?: (
+    done: number,
+    total: number,
+    item: Zotero.Item,
+    result: MatchResult,
+  ) => void | Promise<void>;
+  shouldCancel?: () => boolean;
+  saveBatchSize?: number;
+}
+
+export interface RefreshItemsRankResult {
+  entries: Array<{ item: Zotero.Item; result: MatchResult }>;
+  processed: number;
+  total: number;
+  cancelled: boolean;
+}
+
 export function resolveItemRank(item: Zotero.Item): MatchResult {
   const resolution = resolveVenueCandidates(item);
   return matchCandidates(resolution.candidates, resolution.isPreprint);
@@ -48,23 +66,36 @@ export function refreshItemRank(item: Zotero.Item) {
 
 export async function refreshItemsRank(
   items: Zotero.Item[],
-  onProgress?: (
-    done: number,
-    total: number,
-    item: Zotero.Item,
-    result: MatchResult,
-  ) => void | Promise<void>,
-) {
+  options: RefreshItemsRankOptions = {},
+): Promise<RefreshItemsRankResult> {
   const entries: Array<{ item: Zotero.Item; result: MatchResult }> = [];
+  let pendingSave: Array<{ item: Zotero.Item; result: MatchResult }> = [];
   const total = items.length;
+  const saveBatchSize = Math.max(options.saveBatchSize || total || 1, 1);
 
   for (let index = 0; index < items.length; index++) {
+    if (options.shouldCancel?.()) break;
+
     const item = items[index];
     const result = resolveItemRank(item);
-    entries.push({ item, result });
-    await onProgress?.(index + 1, total, item, result);
+    const entry = { item, result };
+    entries.push(entry);
+    pendingSave.push(entry);
+
+    if (pendingSave.length >= saveBatchSize) {
+      saveMatchResults(pendingSave);
+      pendingSave = [];
+    }
+
+    await options.onProgress?.(entries.length, total, item, result);
   }
 
-  saveMatchResults(entries);
-  return entries;
+  saveMatchResults(pendingSave);
+
+  return {
+    entries,
+    processed: entries.length,
+    total,
+    cancelled: entries.length < total || Boolean(options.shouldCancel?.()),
+  };
 }

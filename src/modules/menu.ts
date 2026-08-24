@@ -10,21 +10,37 @@ import { clearItemStates, ignoreItems, saveManualMatches } from "./storage";
 import { CCFKind, CCFRank, CCFVenue, MatchResult } from "./types";
 import { resolveVenueCandidates } from "./venueResolver";
 
-const REFRESH_BATCH_SIZE = 50;
-const PROGRESS_UPDATE_EVERY = 50;
+const REFRESH_YIELD_EVERY = 10;
+const REFRESH_SAVE_BATCH_SIZE = 500;
+const PROGRESS_UPDATE_EVERY = 25;
+
+type RefreshViewMode = "full" | "soft";
+
+interface ActiveRefreshJob {
+  id: number;
+  cancelRequested: boolean;
+  progressWindow?: ReturnType<typeof createProgressWindow>;
+}
+
+let nextRefreshJobID = 1;
+let activeRefreshJob: ActiveRefreshJob | undefined;
 
 const text = {
   root: "CCF 分级助手",
   refresh: "刷新所选条目的 CCF 分级",
   refreshUnknownNone: "只刷新 Unknown / CCF None",
   clearAndRefresh: "清除缓存并重新识别所选条目",
+  cancelRefresh: "取消当前 CCF 刷新",
   diagnostics: "显示识别诊断",
-  manual: "设置 CCF 来源...",
-  browse: "按分类浏览设置",
+  manual: "搜索 CCF 会议/期刊并设置...",
+  browse: "按 CCF 分类浏览手动设置...",
   ignore: "忽略所选条目",
   restore: "恢复自动匹配",
   noSelection: "没有选中可刷新的普通条目。",
   noUnknownNoneSelection: "所选条目中没有 Unknown 或 CCF None。",
+  noActiveRefresh: "当前没有正在运行的 CCF 刷新任务。",
+  refreshAlreadyRunning:
+    "已有 CCF 刷新任务正在运行。请先取消当前任务或等待完成。",
   manualDone: (count: number, venue: CCFVenue) =>
     `已为 ${count} 个条目设置为 CCF ${venue.rank} | ${venue.abbr}。`,
   ignoredDone: (count: number) => `已忽略 ${count} 个条目。`,
@@ -33,11 +49,20 @@ const text = {
   refreshStart: (count: number) => `准备刷新 ${count} 个条目...`,
   refreshProgress: (done: number, total: number, title: string) =>
     `正在刷新 ${done}/${total}：${title}`,
+  refreshCancelHint:
+    "如需停止，请用顶部 Tools/工具 菜单或右键菜单：CCF 分级助手 -> 取消当前 CCF 刷新。已完成的结果会保留。",
+  refreshCancelRequested: "正在取消刷新，将保存已完成的结果...",
   refreshDone: (
     count: number,
     summary: { matched: number; none: number; preprint: number; unknown: number },
   ) =>
     `完成：${count} 个条目；匹配 ${summary.matched}，CCF None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
+  refreshCancelled: (
+    done: number,
+    total: number,
+    summary: { matched: number; none: number; preprint: number; unknown: number },
+  ) =>
+    `已取消：完成 ${done}/${total}；匹配 ${summary.matched}，CCF None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
   refreshFailed: "刷新失败，请查看 Zotero 错误日志。",
 };
 
@@ -49,7 +74,32 @@ function getSelectedRegularItems(): Zotero.Item[] {
   return items.filter((item) => item.isRegularItem());
 }
 
-function refreshItemsView() {
+function getItemIDs(items: Zotero.Item[]) {
+  return items.map((item) => item.id).filter((id) => typeof id === "number");
+}
+
+function callViewMethod(target: any, method: string) {
+  if (typeof target?.[method] !== "function") return false;
+  target[method]();
+  return true;
+}
+
+function refreshItemsView(items: Zotero.Item[] = [], mode: RefreshViewMode = "full") {
+  const ids = getItemIDs(items);
+  if (mode === "soft" && ids.length > 0) {
+    const itemsView = Zotero.getActiveZoteroPane()?.itemsView as any;
+    if (
+      callViewMethod(itemsView, "forceUpdate") ||
+      callViewMethod(itemsView, "invalidate") ||
+      callViewMethod(itemsView?.tree, "invalidate") ||
+      callViewMethod(itemsView?._tree, "invalidate")
+    ) {
+      return;
+    }
+    Zotero.Notifier.trigger("refresh", "item", ids);
+    return;
+  }
+
   const itemsView = Zotero.getActiveZoteroPane()?.itemsView;
   if ((itemsView as any)?.refreshAndMaintainSelection) {
     (itemsView as any).refreshAndMaintainSelection();
@@ -95,12 +145,14 @@ function createProgressWindow(win: Window, count: number) {
   try {
     return new ztoolkit.ProgressWindow(text.refreshTitle, {
       window: win,
+      closeOnClick: false,
       closeOtherProgressWindows: true,
     })
       .createLine({
         text: text.refreshStart(count),
         progress: 0,
       })
+      .addDescription(text.refreshCancelHint)
       .show(-1);
   } catch (error) {
     ztoolkit.log("Could not open CCF refresh progress window", error);
@@ -123,39 +175,69 @@ async function refreshItemsWithProgress(win: Window, items: Zotero.Item[]) {
     alertUser(win, text.noSelection);
     return;
   }
+  if (activeRefreshJob) {
+    alertUser(win, text.refreshAlreadyRunning);
+    return;
+  }
 
+  const job: ActiveRefreshJob = {
+    id: nextRefreshJobID++,
+    cancelRequested: false,
+  };
   const progressWindow = createProgressWindow(win, items.length);
+  job.progressWindow = progressWindow;
+  activeRefreshJob = job;
   const summary = { matched: 0, none: 0, preprint: 0, unknown: 0 };
 
   try {
-    await refreshItemsRank(items, async (done, total, item, result) => {
-      countResult(summary, result);
-      if (
-        progressWindow &&
-        (done === 1 || done === total || done % PROGRESS_UPDATE_EVERY === 0)
-      ) {
-        progressWindow.changeLine({
-          text: text.refreshProgress(done, total, getItemTitle(item)),
-          progress: Math.round((done / total) * 100),
-        });
-      }
+    const result = await refreshItemsRank(items, {
+      saveBatchSize: REFRESH_SAVE_BATCH_SIZE,
+      shouldCancel: () => job.cancelRequested,
+      onProgress: async (done, total, item, matchResult) => {
+        countResult(summary, matchResult);
+        if (
+          progressWindow &&
+          (done === 1 || done === total || done % PROGRESS_UPDATE_EVERY === 0)
+        ) {
+          progressWindow.changeLine({
+            text: job.cancelRequested
+              ? text.refreshCancelRequested
+              : text.refreshProgress(done, total, getItemTitle(item)),
+            progress: Math.round((done / total) * 100),
+          });
+        }
 
-      if (done % REFRESH_BATCH_SIZE === 0) {
-        await delay(win, 1);
-      }
+        if (done % REFRESH_YIELD_EVERY === 0) {
+          await delay(win, 0);
+        }
+      },
     });
 
-    refreshItemsView();
+    refreshItemsView(
+      result.entries.map((entry) => entry.item),
+      "soft",
+    );
     if (progressWindow) {
-      progressWindow
-        .changeLine({
-          type: "success",
-          text: text.refreshDone(items.length, summary),
-          progress: 100,
-        })
-        .startCloseTimer(4000);
+      if (result.cancelled) {
+        progressWindow
+          .changeLine({
+            text: text.refreshCancelled(result.processed, result.total, summary),
+            progress: Math.round((result.processed / result.total) * 100),
+          })
+          .startCloseTimer(5000);
+      } else {
+        progressWindow
+          .changeLine({
+            type: "success",
+            text: text.refreshDone(result.processed, summary),
+            progress: 100,
+          })
+          .startCloseTimer(4000);
+      }
+    } else if (result.cancelled) {
+      alertUser(win, text.refreshCancelled(result.processed, result.total, summary));
     } else {
-      alertUser(win, text.refreshDone(items.length, summary));
+      alertUser(win, text.refreshDone(result.processed, summary));
     }
   } catch (error) {
     ztoolkit.log("CCF refresh failed", error);
@@ -166,6 +248,30 @@ async function refreshItemsWithProgress(win: Window, items: Zotero.Item[]) {
     } else {
       alertUser(win, text.refreshFailed);
     }
+  } finally {
+    if (activeRefreshJob?.id === job.id) {
+      activeRefreshJob = undefined;
+    }
+  }
+}
+
+function cancelActiveRefresh(win: Window) {
+  if (!activeRefreshJob) {
+    alertUser(win, text.noActiveRefresh);
+    return;
+  }
+
+  activeRefreshJob.cancelRequested = true;
+  activeRefreshJob.progressWindow?.changeLine({
+    text: text.refreshCancelRequested,
+  });
+}
+
+function setMenuItemDisabled(item: Element, disabled: boolean) {
+  if (disabled) {
+    item.setAttribute("disabled", "true");
+  } else {
+    item.removeAttribute("disabled");
   }
 }
 
@@ -325,6 +431,14 @@ function appendBrowseMenu(
   popup.appendChild(browse);
 }
 
+function updateRefreshMenuState(cancelItem: Element, refreshItems: Element[]) {
+  const isRefreshing = Boolean(activeRefreshJob);
+  setMenuItemDisabled(cancelItem, !isRefreshing);
+  for (const item of refreshItems) {
+    setMenuItemDisabled(item, isRefreshing);
+  }
+}
+
 export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
   const doc = win.document;
   const menu = doc.getElementById("zotero-itemmenu");
@@ -357,6 +471,18 @@ export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
     () => void clearSelectedCacheAndRefresh(win),
   );
   popup.appendChild(clearAndRefresh);
+
+  const cancelRefresh = doc.createXULElement("menuitem");
+  cancelRefresh.setAttribute("label", text.cancelRefresh);
+  cancelRefresh.addEventListener("command", () => cancelActiveRefresh(win));
+  popup.appendChild(cancelRefresh);
+  popup.addEventListener("popupshowing", () =>
+    updateRefreshMenuState(cancelRefresh, [
+      refresh,
+      refreshUnknownNone,
+      clearAndRefresh,
+    ]),
+  );
 
   const diagnostics = doc.createXULElement("menuitem");
   diagnostics.setAttribute("label", text.diagnostics);
@@ -402,4 +528,49 @@ export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
   popup.appendChild(restore);
 
   menu.appendChild(root);
+}
+
+export function registerToolsMenu(win: _ZoteroTypes.MainWindow) {
+  const doc = win.document;
+  if (doc.getElementById("ccf-for-zotero-tools-menu")) return;
+
+  const toolsPopup =
+    doc.getElementById("menu_ToolsPopup") ||
+    doc.getElementById("tools-menu-popup");
+  if (!toolsPopup) {
+    ztoolkit.log("Could not find Zotero Tools menu for CCF controls");
+    return;
+  }
+
+  const root = doc.createXULElement("menu");
+  root.setAttribute("id", "ccf-for-zotero-tools-menu");
+  root.setAttribute("label", text.root);
+
+  const popup = doc.createXULElement("menupopup");
+  root.appendChild(popup);
+
+  const refresh = doc.createXULElement("menuitem");
+  refresh.setAttribute("label", text.refresh);
+  refresh.addEventListener("command", () => void refreshSelectedItems(win));
+  popup.appendChild(refresh);
+
+  const refreshUnknownNone = doc.createXULElement("menuitem");
+  refreshUnknownNone.setAttribute("label", text.refreshUnknownNone);
+  refreshUnknownNone.addEventListener(
+    "command",
+    () => void refreshSelectedUnknownNoneItems(win),
+  );
+  popup.appendChild(refreshUnknownNone);
+
+  popup.appendChild(doc.createXULElement("menuseparator"));
+
+  const cancelRefresh = doc.createXULElement("menuitem");
+  cancelRefresh.setAttribute("label", text.cancelRefresh);
+  cancelRefresh.addEventListener("command", () => cancelActiveRefresh(win));
+  popup.appendChild(cancelRefresh);
+  popup.addEventListener("popupshowing", () =>
+    updateRefreshMenuState(cancelRefresh, [refresh, refreshUnknownNone]),
+  );
+
+  toolsPopup.appendChild(root);
 }

@@ -1,5 +1,5 @@
 import { registerCCFColumn } from "./modules/column";
-import { registerRightClickMenu } from "./modules/menu";
+import { registerRightClickMenu, registerToolsMenu } from "./modules/menu";
 import { createZToolkit } from "./utils/ztoolkit";
 
 async function onStartup() {
@@ -22,6 +22,7 @@ async function onStartup() {
 async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
   addon.data.ztoolkit = createZToolkit();
   registerRightClickMenu(win);
+  registerToolsMenu(win);
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
@@ -49,4 +50,3 @@ export default {
   onMainWindowLoad,
   onMainWindowUnload,
 };
-

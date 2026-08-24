@@ -3,8 +3,10 @@
 /* eslint-disable */
 // @ts-nocheck
 export type FluentMessageId =
+  | 'menu-cancel-refresh-label'
   | 'menu-ignore-label'
   | 'menu-manual-label'
   | 'menu-refresh-label'
+  | 'menu-refresh-unknown-none-label'
   | 'menu-restore-label'
   | 'menu-root-label';

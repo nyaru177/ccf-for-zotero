@@ -19,6 +19,37 @@ const kindLabels: Record<CCFKind, string> = {
 
 const rankOrder: Record<CCFRank, number> = { A: 0, B: 1, C: 2 };
 
+const categorySearchAliases: Record<string, string[]> = {
+  "计算机体系结构/并行与分布计算/存储系统": [
+    "architecture",
+    "parallel computing",
+    "distributed computing",
+    "storage systems",
+  ],
+  计算机网络: ["network", "computer network", "networking"],
+  网络与信息安全: ["security", "privacy", "information security"],
+  "软件工程/系统软件/程序设计语言": [
+    "software engineering",
+    "systems software",
+    "programming languages",
+  ],
+  "数据库/数据挖掘/内容检索": [
+    "database",
+    "data mining",
+    "information retrieval",
+    "retrieval",
+  ],
+  计算机科学理论: ["theory", "theoretical computer science"],
+  计算机图形学与多媒体: ["graphics", "multimedia"],
+  人工智能: ["ai", "artificial intelligence", "machine learning"],
+  人机交互与普适计算: [
+    "human computer interaction",
+    "hci",
+    "ubiquitous computing",
+  ],
+  "交叉/综合/新兴": ["interdisciplinary", "emerging", "general"],
+};
+
 function normalizeSearchText(value: string): string {
   return value
     .toLowerCase()
@@ -36,17 +67,48 @@ function normalizeAbbr(value: string): string {
     .trim();
 }
 
+function compactSearchText(value: string): string {
+  return normalizeSearchText(value).replace(/\s+/g, "");
+}
+
+function isOrderedSubsequence(needle: string, haystack: string): boolean {
+  if (!needle) return true;
+  let index = 0;
+  for (const char of haystack) {
+    if (char === needle[index]) index += 1;
+    if (index === needle.length) return true;
+  }
+  return false;
+}
+
+function tokenMatchesText(token: string, text: string): boolean {
+  if (text.includes(token)) return true;
+  return token.length >= 3 && isOrderedSubsequence(token, text);
+}
+
 function venueKey(venue: CCFVenue): string {
   return `${venue.kind}::${venue.abbr}::${venue.fullName}`;
 }
 
 function venueTextPool(venue: CCFVenue): string[] {
-  return [venue.abbr, venue.fullName, venue.category, ...(venue.aliases || [])];
+  return [
+    venue.abbr,
+    venue.fullName,
+    venue.category,
+    kindLabels[venue.kind],
+    venue.kind,
+    venue.rank,
+    `CCF ${venue.rank}`,
+    ...(categorySearchAliases[venue.category] || []),
+    ...(venue.aliases || []),
+  ];
 }
 
 function optionScore(venue: CCFVenue, query: string): number {
   const normalizedQuery = normalizeSearchText(query);
   const queryAbbr = normalizeAbbr(query);
+  const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+  const compactNormalizedQuery = compactSearchText(query);
 
   if (!normalizedQuery && !queryAbbr) {
     return 300 - rankOrder[venue.rank] * 20 + (venue.kind === "conference" ? 4 : 0);
@@ -60,23 +122,40 @@ function optionScore(venue: CCFVenue, query: string): number {
   if (queryAbbr && normalizedAbbr === queryAbbr) score += 1200;
   if (compactQuery && compactAbbr === compactQuery) score += 1100;
   if (queryAbbr && normalizedAbbr.startsWith(queryAbbr)) score += 850;
+  if (
+    compactNormalizedQuery.length >= 3 &&
+    compactAbbr.includes(compactNormalizedQuery.toUpperCase())
+  ) {
+    score += 780;
+  }
 
   for (const raw of venueTextPool(venue)) {
     const text = normalizeSearchText(raw);
     const abbrText = normalizeAbbr(raw);
+    const compactText = text.replace(/\s+/g, "");
     if (!text && !abbrText) continue;
 
     if (normalizedQuery && text === normalizedQuery) score += 1000;
     if (queryAbbr && abbrText === queryAbbr) score += 950;
     if (normalizedQuery && text.startsWith(normalizedQuery)) score += 700;
     if (normalizedQuery && text.includes(normalizedQuery)) score += 520;
+    if (
+      compactNormalizedQuery.length >= 3 &&
+      compactText.includes(compactNormalizedQuery)
+    ) {
+      score += 480;
+    }
 
-    const queryTokens = normalizedQuery.split(" ").filter(Boolean);
     if (
       queryTokens.length > 1 &&
-      queryTokens.every((token) => text.includes(token))
+      queryTokens.every((token) => tokenMatchesText(token, compactText))
     ) {
       score += 460;
+    } else if (
+      queryTokens.length === 1 &&
+      tokenMatchesText(queryTokens[0], compactText)
+    ) {
+      score += 160;
     }
   }
 
@@ -205,6 +284,10 @@ function buildSelectorHtml(initialQuery: string) {
         color: #52616b;
         font-size: 12px;
       }
+      .ccf-search-help {
+        color: #52616b;
+        font-size: 12px;
+      }
       .ccf-result-list {
         border: 1px solid #d8dee6;
         border-radius: 6px;
@@ -278,7 +361,10 @@ function buildSelectorHtml(initialQuery: string) {
       }
     </style>
     <div class="ccf-selector">
-      <input id="ccf-selector-query" value="${escapeHtml(initialQuery)}" placeholder="输入简称、全称或分类，例如 ACL、ACM MM、人工智能" />
+      <input id="ccf-selector-query" value="${escapeHtml(initialQuery)}" placeholder="搜索 CCF 目录：输入简称、全称、分类或英文领域词，例如 ACL、ACM MM、theory、人工智能" />
+      <div class="ccf-search-help">
+        支持模糊搜索；建议优先用上方搜索框，下面的分类浏览只作为备用。
+      </div>
       <div class="ccf-filter-row">
         <select id="ccf-selector-kind">
           <option value="">全部类型</option>
@@ -400,6 +486,13 @@ export async function openManualVenueSelector(
         const fullName = doc.createElement("span");
         fullName.className = "ccf-venue-full";
         fullName.textContent = venue.fullName;
+        const aliasPreview = (venue.aliases || [])
+          .filter((alias) => alias !== venue.abbr && alias !== venue.fullName)
+          .slice(0, 2)
+          .join(" / ");
+        if (aliasPreview) {
+          fullName.textContent = `${venue.fullName} · 别名：${aliasPreview}`;
+        }
 
         button.appendChild(line);
         button.appendChild(fullName);

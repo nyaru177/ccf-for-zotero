@@ -13,7 +13,7 @@ import {
   venueToManualResult,
 } from "../src/modules/manualSelector";
 import { formatNonCcfVenueText } from "../src/modules/nonCcfAliases";
-import { getDisplayState } from "../src/modules/rankService";
+import { getDisplayState, refreshItemsRank } from "../src/modules/rankService";
 import { clearStorageMemoryCache, getStoredState } from "../src/modules/storage";
 import { resolveVenueCandidates } from "../src/modules/venueResolver";
 
@@ -549,6 +549,18 @@ describe("local CCF matcher", () => {
     assert.equal(venueToManualResult(acmMM!).source, "manual");
   });
 
+  it("searches manual selection candidates with fuzzy field keywords", () => {
+    const tosem = searchVenueOptions("softw methodol", { kind: "journal" })[0]
+      ?.venue;
+    assert.equal(tosem?.abbr, "TOSEM");
+
+    const theoryOptions = searchVenueOptions("theory", { kind: "conference" }, 20);
+    assert.equal(
+      theoryOptions.some((option) => option.venue.category === "计算机科学理论"),
+      true,
+    );
+  });
+
   it("parses the Zotero prefs state store once per session", () => {
     let getCalls = 0;
     const rawStore = JSON.stringify({
@@ -685,6 +697,60 @@ describe("local CCF matcher", () => {
       assert.equal(state.abbr, "ACL");
       assert.equal(getCalls, 1);
       assert.equal(setCalls, 0);
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
+  it("cancels batch refresh after saving completed entries", async () => {
+    let cancelled = false;
+    let rawStore = "";
+    let setCalls = 0;
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return rawStore;
+        },
+        set(_key: string, value: string) {
+          setCalls += 1;
+          rawStore = value;
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      const result = await refreshItemsRank(
+        [
+          makeItem({ proceedingsTitle: "ACL" }, "conferencePaper", 201),
+          makeItem({ proceedingsTitle: "EMNLP" }, "conferencePaper", 202),
+          makeItem({ proceedingsTitle: "COLING" }, "conferencePaper", 203),
+        ],
+        {
+          saveBatchSize: 1,
+          shouldCancel: () => cancelled,
+          onProgress() {
+            cancelled = true;
+          },
+        },
+      );
+
+      assert.equal(result.cancelled, true);
+      assert.equal(result.processed, 1);
+      assert.equal(result.entries[0]?.result.abbr, "ACL");
+      assert.equal(setCalls, 1);
+
+      clearStorageMemoryCache();
+      assert.equal(
+        getStoredState({ libraryID: 1, id: 201 } as Zotero.Item)?.abbr,
+        "ACL",
+      );
+      assert.equal(
+        getStoredState({ libraryID: 1, id: 202 } as Zotero.Item),
+        undefined,
+      );
     } finally {
       clearStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;

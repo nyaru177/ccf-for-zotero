@@ -1,7 +1,7 @@
 {
   "name": "ccf-for-zotero",
   "type": "module",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Offline CCF venue ranking badges for Zotero.",
   "config": {
     "addonName": "CCF for Zotero",
