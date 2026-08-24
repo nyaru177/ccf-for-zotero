@@ -1,5 +1,21 @@
 # Release Notes
 
+## v0.1.13
+
+这是一次刷新失败热修，针对 V0.1.12 在真实 Zotero 中出现的“刷新失败，请查看 Zotero 错误日志”。
+
+### 主要功能
+
+- 将刷新结果保存后的列表重绘做成非致命步骤：`forceUpdate`、`invalidate`、`refreshAndMaintainSelection` 或 `Notifier.trigger` 失败时只记录日志，不再把整次刷新判定为失败。
+- 将进度窗口更新做成非致命步骤：`changeLine` / `startCloseTimer` 失败时不影响已完成的分级结果。
+- 真实核心刷新失败时，进度窗口会显示截断后的具体错误信息，不再只显示笼统的“请查看 Zotero 错误日志”。
+
+### 校验
+
+- `npm run check` 通过。
+- matcher 测试 `65 passed`。
+- 构建产物 manifest 版本为 `0.1.13`。
+
 ## v0.1.12
 
 这是一次基于真实 Zotero UI 反馈的小修复。

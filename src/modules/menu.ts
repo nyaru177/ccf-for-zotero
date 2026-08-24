@@ -69,7 +69,7 @@ const text = {
     summary: { matched: number; none: number; preprint: number; unknown: number },
   ) =>
     `已取消 ${done}/${total}：匹配 ${summary.matched}，None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
-  refreshFailed: "刷新失败，请查看 Zotero 错误日志。",
+  refreshFailed: (message: string) => `刷新失败：${message}`,
 };
 
 const kindOrder: CCFKind[] = ["conference", "journal"];
@@ -86,8 +86,26 @@ function getItemIDs(items: Zotero.Item[]) {
 
 function callViewMethod(target: any, method: string) {
   if (typeof target?.[method] !== "function") return false;
-  target[method]();
-  return true;
+  try {
+    target[method]();
+    return true;
+  } catch (error) {
+    ztoolkit.log(`Could not refresh CCF item view via ${method}`, error);
+    return false;
+  }
+}
+
+function triggerItemTreeRefresh(ids: number[]) {
+  try {
+    const result = Zotero.Notifier.trigger("refresh", "item", ids);
+    if (result && typeof (result as Promise<void>).catch === "function") {
+      void (result as Promise<void>).catch((error) => {
+        ztoolkit.log("Could not notify CCF item refresh", error);
+      });
+    }
+  } catch (error) {
+    ztoolkit.log("Could not trigger CCF item refresh", error);
+  }
 }
 
 function refreshItemsView(items: Zotero.Item[] = [], mode: RefreshViewMode = "full") {
@@ -102,15 +120,13 @@ function refreshItemsView(items: Zotero.Item[] = [], mode: RefreshViewMode = "fu
     ) {
       return;
     }
-    Zotero.Notifier.trigger("refresh", "item", ids);
+    triggerItemTreeRefresh(ids);
     return;
   }
 
   const itemsView = Zotero.getActiveZoteroPane()?.itemsView;
-  if ((itemsView as any)?.refreshAndMaintainSelection) {
-    (itemsView as any).refreshAndMaintainSelection();
-  } else {
-    Zotero.Notifier.trigger("refresh", "item", []);
+  if (!callViewMethod(itemsView, "refreshAndMaintainSelection")) {
+    triggerItemTreeRefresh([]);
   }
 }
 
@@ -165,6 +181,32 @@ function createProgressWindow(win: Window, count: number) {
   }
 }
 
+function updateProgressWindow(
+  progressWindow: ReturnType<typeof createProgressWindow>,
+  line: { type?: string; text?: string; progress?: number },
+  closeAfterMs?: number,
+) {
+  if (!progressWindow) return;
+  try {
+    progressWindow.changeLine(line);
+    if (closeAfterMs !== undefined) {
+      progressWindow.startCloseTimer(closeAfterMs);
+    }
+  } catch (error) {
+    ztoolkit.log("Could not update CCF refresh progress window", error);
+  }
+}
+
+function formatErrorMessage(error: unknown) {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "请查看 Zotero 错误日志";
+  return truncate(raw, 90);
+}
+
 function countResult(
   summary: { matched: number; none: number; preprint: number; unknown: number },
   result: MatchResult,
@@ -214,7 +256,7 @@ async function refreshItemsWithProgress(
                 done === total ||
                 done % PROGRESS_UPDATE_EVERY === 0)
             ) {
-              progressWindow.changeLine({
+              updateProgressWindow(progressWindow, {
                 text: job.cancelRequested
                   ? text.refreshCancelRequested
                   : text.refreshScan(done, total, getItemTitle(item)),
@@ -230,20 +272,20 @@ async function refreshItemsWithProgress(
       );
 
       if (filterResult.cancelled) {
-        if (progressWindow) {
-          progressWindow
-            .changeLine({
-              text: text.refreshCancelled(
-                filterResult.processed,
-                filterResult.total,
-                summary,
-              ),
-              progress: Math.round(
-                (filterResult.processed / filterResult.total) * 100,
-              ),
-            })
-            .startCloseTimer(4000);
-        }
+        updateProgressWindow(
+          progressWindow,
+          {
+            text: text.refreshCancelled(
+              filterResult.processed,
+              filterResult.total,
+              summary,
+            ),
+            progress: Math.round(
+              (filterResult.processed / filterResult.total) * 100,
+            ),
+          },
+          4000,
+        );
         return;
       }
 
@@ -251,19 +293,21 @@ async function refreshItemsWithProgress(
       if (itemsToRefresh.length === 0) {
         const message = options.noMatchedItemsMessage || text.noSelection;
         if (progressWindow) {
-          progressWindow
-            .changeLine({
+          updateProgressWindow(
+            progressWindow,
+            {
               text: message,
               progress: 100,
-            })
-            .startCloseTimer(3000);
+            },
+            3000,
+          );
         } else {
           alertUser(win, message);
         }
         return;
       }
 
-      progressWindow?.changeLine({
+      updateProgressWindow(progressWindow, {
         text: `${text.refreshStart(itemsToRefresh.length)}（${text.refreshCancelHint}）`,
         progress: 0,
       });
@@ -279,7 +323,7 @@ async function refreshItemsWithProgress(
           progressWindow &&
           (done === 1 || done === total || done % PROGRESS_UPDATE_EVERY === 0)
         ) {
-          progressWindow.changeLine({
+          updateProgressWindow(progressWindow, {
             text: job.cancelRequested
               ? text.refreshCancelRequested
               : text.refreshProgress(done, total, getItemTitle(item)),
@@ -299,20 +343,24 @@ async function refreshItemsWithProgress(
     );
     if (progressWindow) {
       if (result.cancelled) {
-        progressWindow
-          .changeLine({
+        updateProgressWindow(
+          progressWindow,
+          {
             text: text.refreshCancelled(result.processed, result.total, summary),
             progress: Math.round((result.processed / result.total) * 100),
-          })
-          .startCloseTimer(5000);
+          },
+          5000,
+        );
       } else {
-        progressWindow
-          .changeLine({
+        updateProgressWindow(
+          progressWindow,
+          {
             type: "success",
             text: text.refreshDone(result.processed, summary),
             progress: 100,
-          })
-          .startCloseTimer(4000);
+          },
+          4000,
+        );
       }
     } else if (result.cancelled) {
       alertUser(win, text.refreshCancelled(result.processed, result.total, summary));
@@ -321,12 +369,15 @@ async function refreshItemsWithProgress(
     }
   } catch (error) {
     ztoolkit.log("CCF refresh failed", error);
+    const failureText = text.refreshFailed(formatErrorMessage(error));
     if (progressWindow) {
-      progressWindow
-        .changeLine({ type: "fail", text: text.refreshFailed, progress: 100 })
-        .startCloseTimer(6000);
+      updateProgressWindow(
+        progressWindow,
+        { type: "fail", text: failureText, progress: 100 },
+        6000,
+      );
     } else {
-      alertUser(win, text.refreshFailed);
+      alertUser(win, failureText);
     }
   } finally {
     if (activeRefreshJob?.id === job.id) {
@@ -342,7 +393,7 @@ function cancelActiveRefresh(win: Window) {
   }
 
   activeRefreshJob.cancelRequested = true;
-  activeRefreshJob.progressWindow?.changeLine({
+  updateProgressWindow(activeRefreshJob.progressWindow, {
     text: text.refreshCancelRequested,
   });
 }
