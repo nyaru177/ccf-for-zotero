@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { hasBundledCASSnapshot } from "../src/modules/casCatalog";
+import {
+  getCASCatalog,
+  getCASCatalogStatusText,
+  hasBundledCASSnapshot,
+} from "../src/modules/casCatalog";
 import {
   formatCASColumnDataForState,
   unpackCASColumnData,
@@ -366,7 +370,7 @@ describe("CAS journal matcher", () => {
     assert.equal(result.matchMethod, "用户手动选择 CAS 期刊");
   });
 
-  it("uses a data-missing display state when no authorized CAS snapshot is bundled", () => {
+  it("reports the bundled CAS snapshot when production data is present", () => {
     const originalZotero = (globalThis as any).Zotero;
     (globalThis as any).Zotero = {
       Prefs: {
@@ -378,13 +382,16 @@ describe("CAS journal matcher", () => {
 
     try {
       clearCASStorageMemoryCache();
-      assert.equal(hasBundledCASSnapshot(), false);
+      const catalog = getCASCatalog();
+      assert.equal(hasBundledCASSnapshot(), true);
+      assert.equal(catalog.dataStatus, "third-party-snapshot");
+      assert.ok(catalog.journals.length > 20000);
+      assert.match(getCASCatalogStatusText(), /第三方公开快照/);
       const state = getCASDisplayState(
-        makeItem({ publicationTitle: "Scientific Reports" }, "journalArticle", 1304),
-        { computeIfMissing: false },
+        makeItem({ ISSN: "0360-0300" }, "journalArticle", 1304),
       );
-      assert.equal(state.status, "data-missing");
-      assert.match(state.matchMethod || "", /未内置官方\/授权/);
+      assert.equal(state.status, "matched");
+      assert.equal(state.journalKey, "acm-computing-surveys");
     } finally {
       clearCASStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;

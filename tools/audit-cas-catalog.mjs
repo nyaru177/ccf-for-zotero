@@ -53,6 +53,18 @@ function duplicateEntries(map) {
   return [...map.entries()].filter((entry) => entry[1].length > 1);
 }
 
+const allowedSourceKinds = new Set([
+  "official-platform",
+  "official-announcement",
+  "authorized-institution-export",
+  "authorized-file",
+  "third-party-public-repack",
+  "fixture",
+  "unknown",
+]);
+
+const snapshotStatuses = new Set(["official-snapshot", "third-party-snapshot"]);
+
 function validatePlacementArray(journalLabel, label, placements, errors) {
   if (placements === undefined) return 0;
   if (!Array.isArray(placements)) {
@@ -87,8 +99,17 @@ if (!text(catalog.version)) errors.push("catalog.version is required");
 if (!Number.isInteger(Number(catalog.year))) errors.push("catalog.year is required");
 if (!text(catalog.updateDate)) errors.push("catalog.updateDate is required");
 if (!text(catalog.source)) errors.push("catalog.source is required");
-if (!["official-snapshot", "metadata-only", "fixture"].includes(catalog.dataStatus)) {
-  errors.push("catalog.dataStatus must be official-snapshot, metadata-only, or fixture");
+if (
+  ![
+    "official-snapshot",
+    "third-party-snapshot",
+    "metadata-only",
+    "fixture",
+  ].includes(catalog.dataStatus)
+) {
+  errors.push(
+    "catalog.dataStatus must be official-snapshot, third-party-snapshot, metadata-only, or fixture",
+  );
 }
 if (!["allowed", "private-only", "unknown"].includes(catalog.redistribution)) {
   errors.push("catalog.redistribution must be allowed, private-only, or unknown");
@@ -99,8 +120,38 @@ if (!Array.isArray(catalog.journals)) {
 if (catalog.sourceHash && !/^sha256:[0-9a-f]{64}$/i.test(catalog.sourceHash)) {
   errors.push("catalog.sourceHash must look like sha256:<64 hex chars>");
 }
-if (!catalog.sourceHash && catalog.dataStatus === "official-snapshot") {
-  errors.push("official snapshots must include catalog.sourceHash");
+if (!catalog.sourceHash && snapshotStatuses.has(catalog.dataStatus)) {
+  errors.push("CAS snapshots must include catalog.sourceHash");
+}
+
+const provenance = catalog.provenance || {};
+if (catalog.provenance) {
+  if (!allowedSourceKinds.has(provenance.sourceKind)) {
+    errors.push(
+      "catalog.provenance.sourceKind must be official-platform, official-announcement, authorized-institution-export, authorized-file, third-party-public-repack, fixture, or unknown",
+    );
+  }
+  if (provenance.accessDate && !/^\d{4}-\d{2}-\d{2}$/.test(provenance.accessDate)) {
+    errors.push("catalog.provenance.accessDate must use YYYY-MM-DD");
+  }
+}
+
+if (snapshotStatuses.has(catalog.dataStatus)) {
+  if (!catalog.provenance) {
+    errors.push("CAS snapshots must include catalog.provenance");
+  }
+  if (!text(provenance.sourceKind)) {
+    errors.push("CAS snapshots must include catalog.provenance.sourceKind");
+  }
+  if (["fixture", "unknown"].includes(provenance.sourceKind)) {
+    errors.push("CAS snapshots cannot use fixture/unknown sourceKind");
+  }
+  if (!text(provenance.accessDate)) {
+    errors.push("CAS snapshots must include catalog.provenance.accessDate");
+  }
+  if (!text(provenance.permissionNote)) {
+    errors.push("CAS snapshots must include catalog.provenance.permissionNote");
+  }
 }
 
 const journals = Array.isArray(catalog.journals) ? catalog.journals : [];
@@ -212,7 +263,10 @@ for (const [issn, labels] of duplicateEntries(byISSN)) {
 
 if (warnings.length) {
   console.warn("CAS catalog audit warnings:");
-  for (const warning of warnings) console.warn(`- ${warning}`);
+  for (const warning of warnings.slice(0, 25)) console.warn(`- ${warning}`);
+  if (warnings.length > 25) {
+    console.warn(`- ... ${warnings.length - 25} more warnings omitted`);
+  }
 }
 
 if (errors.length) {

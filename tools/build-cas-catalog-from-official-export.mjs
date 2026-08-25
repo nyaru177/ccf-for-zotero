@@ -22,18 +22,23 @@ function parseArgs(argv) {
 function usage() {
   return [
     "Usage:",
-    "  node tools/build-cas-catalog-from-official-export.mjs --input official.json --output src/data/cas-journal-ranking.json --version CAS-2025-official --edition 2025-upgraded --source \"fenqubiao official export\"",
-    "  node tools/build-cas-catalog-from-official-export.mjs --input official.csv --format csv --version CAS-2025-official --edition 2025-upgraded --source \"fenqubiao official export\"",
+    "  node tools/build-cas-catalog-from-official-export.mjs --input official.json --output src/data/cas-journal-ranking.json --catalog-version CAS-2025-official --edition 2025-upgraded --source \"fenqubiao official export\"",
+    "  node tools/build-cas-catalog-from-official-export.mjs --input official.csv --format csv --catalog-version CAS-2025-official --edition 2025-upgraded --source \"fenqubiao official export\"",
     "",
     "Required:",
-    "  --input         JSON/CSV/TSV exported from the official/authorized CAS source",
-    "  --version       Catalog version written into plugin state",
+    "  --input         JSON/CSV/TSV exported from the official/authorized CAS source or approved third-party snapshot",
+    "  --catalog-version Catalog version written into plugin state",
     "  --edition       Human-readable edition label",
     "  --source        Source description for audit and release notes",
+    "  --source-kind   official-platform|official-announcement|authorized-institution-export|authorized-file|third-party-public-repack",
+    "  --permission-note Short note explaining the redistribution/use permission",
     "",
     "Optional:",
     "  --output        Defaults to src/data/cas-journal-ranking.json",
     "  --format        json|csv|tsv, defaults to input extension",
+    "  --source-url    Official URL or institution page, when available",
+    "  --access-date   Defaults to today",
+    "  --data-status   official-snapshot|third-party-snapshot|fixture, defaults to official-snapshot",
     "  --redistribution allowed|private-only|unknown, defaults to private-only",
     "  --update-date   Defaults to today",
     "  --year          Defaults to the first journal Year field or current year",
@@ -177,6 +182,7 @@ function bool(value) {
   if (typeof value === "boolean") return value;
   const raw = text(value);
   if (!raw) return false;
+  if (/预警/.test(raw)) return true;
   return /^(1|true|yes|y|top|是|有|预警)$/i.test(raw);
 }
 
@@ -193,6 +199,20 @@ function splitISSNs(value) {
   const raw = text(value);
   if (!raw) return [];
   return [...new Set(raw.split(/[;,/| ]+/).map(normalizeISSN).filter(Boolean))];
+}
+
+function splitISSNPair(value) {
+  const values = splitISSNs(value);
+  if (!values.length) return { issn: [], eissn: [] };
+  const [first, ...rest] = values;
+  return {
+    issn: first ? [first] : [],
+    eissn: [...new Set(rest.filter((entry) => entry !== first))],
+  };
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function zone(value) {
@@ -241,6 +261,29 @@ function placementsFromFlat(categoryValue, zoneValue, fallbackCategory) {
   }));
 }
 
+function placementsFromIndexedFlat(row, categoryPrefix, zonePrefix, count, fallbackCategory) {
+  const placements = [];
+  for (let index = 1; index <= count; index++) {
+    placements.push(
+      ...placementsFromFlat(
+        firstValue(row, [
+          `${categoryPrefix}${index}`,
+          `${categoryPrefix}${index}Category`,
+          `${categoryPrefix}${index}Name`,
+        ]),
+        firstValue(row, [
+          `${zonePrefix}${index}`,
+          `${categoryPrefix}${index}分区`,
+          `${categoryPrefix}${index}Zone`,
+          `${categoryPrefix}${index}Section`,
+        ]),
+        fallbackCategory,
+      ),
+    );
+  }
+  return placements;
+}
+
 function slug(value, fallback) {
   const base = text(value) || fallback;
   return base
@@ -249,6 +292,22 @@ function slug(value, fallback) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
+}
+
+function uniqueJournalKeys(journals) {
+  const seen = new Map();
+  return journals.map((journal, index) => {
+    const count = seen.get(journal.key) || 0;
+    seen.set(journal.key, count + 1);
+    if (count === 0) return journal;
+
+    const suffix =
+      normalizeISSN(journal.issn?.[0] || journal.eissn?.[0]) || `row-${index + 1}`;
+    return {
+      ...journal,
+      key: `${journal.key}-${suffix.toLowerCase()}`,
+    };
+  });
 }
 
 function toJournal(row, index) {
@@ -272,12 +331,28 @@ function toJournal(row, index) {
     throw new Error(`Row ${index + 1} is missing Title`);
   }
 
-  const issn = splitISSNs(
-    firstValue(row, ["ISSN", "issn", "PrintISSN", "printISSN"]),
+  const issnPair = splitISSNPair(
+    firstValue(row, [
+      "ISSN/EISSN",
+      "ISSN/eISSN",
+      "ISSN / EISSN",
+      "ISSN / eISSN",
+      "ISSN_EISSN",
+      "ISSNAndEISSN",
+    ]),
   );
-  const eissn = splitISSNs(
-    firstValue(row, ["EISSN", "eISSN", "eissn", "E-ISSN", "e-ISSN"]),
-  );
+  const issn = uniqueValues([
+    ...splitISSNs(
+      firstValue(row, ["ISSN", "issn", "PrintISSN", "printISSN"]),
+    ),
+    ...issnPair.issn,
+  ]);
+  const eissn = uniqueValues([
+    ...splitISSNs(
+      firstValue(row, ["EISSN", "eISSN", "eissn", "E-ISSN", "e-ISSN"]),
+    ),
+    ...issnPair.eissn,
+  ]);
   const structuredMajor = firstStructured(row, ["ZKY", "zky", "Major", "major"]);
   const structuredMinor = firstStructured(row, ["JCR", "jcr", "Minor", "minor"]);
   const structuredMajorItems = Array.isArray(structuredMajor)
@@ -316,6 +391,9 @@ function toJournal(row, index) {
   ];
   const minorPlacements = [
     ...placementsFromJCR(structuredMinor),
+    ...placementsFromIndexedFlat(row, "小类", "小类分区", 6, "未命名小类"),
+    ...placementsFromIndexedFlat(row, "MinorCategory", "MinorZone", 6, "未命名小类"),
+    ...placementsFromIndexedFlat(row, "minorCategory", "minorZone", 6, "未命名小类"),
     ...placementsFromFlat(
       firstValue(row, [
         "MinorCategory",
@@ -392,6 +470,8 @@ function toJournal(row, index) {
         "warned",
         "Warning",
         "warning",
+        "标注",
+        "备注",
         "是否预警",
         "预警",
         "预警期刊",
@@ -410,7 +490,15 @@ function toJournal(row, index) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-if (!args.input || !args.version || !args.edition || !args.source) {
+const catalogVersion = args["catalog-version"] || args.version;
+if (
+  !args.input ||
+  !catalogVersion ||
+  !args.edition ||
+  !args.source ||
+  !args["source-kind"] ||
+  !args["permission-note"]
+) {
   console.error(usage());
   process.exit(2);
 }
@@ -420,23 +508,32 @@ const outputPath = resolve(args.output || "src/data/cas-journal-ranking.json");
 const raw = readFileSync(inputPath);
 const sourceHash = createHash("sha256").update(raw).digest("hex");
 const rows = readRows(inputPath, raw, args.format);
-const journals = rows.map(toJournal).sort((a, b) => a.title.localeCompare(b.title));
+const journals = uniqueJournalKeys(
+  rows.map(toJournal).sort((a, b) => a.title.localeCompare(b.title)),
+);
 const detectedYear = Number(
   rows.find((row) => firstValue(row, ["Year", "year", "年份"]))?.Year ||
     rows.find((row) => firstValue(row, ["Year", "year", "年份"]))?.year ||
     rows.find((row) => firstValue(row, ["Year", "year", "年份"]))?.["年份"],
 );
 const year = Number(args.year || detectedYear || new Date().getFullYear());
+const today = new Date().toISOString().slice(0, 10);
 
 const catalog = {
-  version: args.version,
+  version: catalogVersion,
   edition: args.edition,
   year,
-  updateDate: args["update-date"] || new Date().toISOString().slice(0, 10),
+  updateDate: args["update-date"] || today,
   source: args.source,
   sourceHash: `sha256:${sourceHash}`,
+  provenance: {
+    sourceKind: args["source-kind"],
+    sourceURL: args["source-url"],
+    accessDate: args["access-date"] || today,
+    permissionNote: args["permission-note"],
+  },
   redistribution: args.redistribution || "private-only",
-  dataStatus: "official-snapshot",
+  dataStatus: args["data-status"] || "official-snapshot",
   journals,
 };
 

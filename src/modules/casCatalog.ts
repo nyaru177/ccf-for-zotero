@@ -22,12 +22,20 @@ export function getCASIndex(): CASIndex {
 }
 
 export function hasBundledCASSnapshot(): boolean {
-  return casCatalog.dataStatus === "official-snapshot" && casCatalog.journals.length > 0;
+  return (
+    ["official-snapshot", "third-party-snapshot"].includes(
+      casCatalog.dataStatus || "",
+    ) && casCatalog.journals.length > 0
+  );
 }
 
 export function getCASCatalogStatusText(): string {
   if (hasBundledCASSnapshot()) {
-    return `${casCatalog.edition || casCatalog.version}，${casCatalog.journals.length} 本期刊`;
+    const statusLabel =
+      casCatalog.dataStatus === "third-party-snapshot"
+        ? "第三方公开快照"
+        : "官方/授权快照";
+    return `${casCatalog.edition || casCatalog.version}，${casCatalog.journals.length} 本期刊，${statusLabel}`;
   }
   return "未内置官方/授权 CAS 全量快照";
 }

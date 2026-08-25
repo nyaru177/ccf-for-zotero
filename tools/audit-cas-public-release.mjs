@@ -43,6 +43,26 @@ if (!catalog.sourceHash) {
   issues.push("sourceHash is required to make the bundled snapshot auditable");
 }
 
+if (!catalog.provenance) {
+  issues.push("provenance is required to make the bundled snapshot traceable");
+} else {
+  if (
+    ![
+      "official-platform",
+      "official-announcement",
+      "authorized-institution-export",
+      "authorized-file",
+    ].includes(catalog.provenance.sourceKind)
+  ) {
+    issues.push(
+      `provenance.sourceKind is ${catalog.provenance.sourceKind || "missing"}, expected official or authorized source kind`,
+    );
+  }
+  if (!catalog.provenance.accessDate || !catalog.provenance.permissionNote) {
+    issues.push("provenance.accessDate and provenance.permissionNote are required");
+  }
+}
+
 for (const [index, journal] of (catalog.journals || []).entries()) {
   const label = journal.key || journal.title || `row ${index + 1}`;
   if (!journal.key || !journal.title) {

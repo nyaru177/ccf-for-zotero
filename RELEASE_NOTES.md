@@ -1,29 +1,30 @@
 # Release Notes
 
-## v0.2.0-dev
+## v0.2.0
 
-这是正在开发中的 CAS 中科院期刊分区版本。当前代码已经加入 CAS 的独立列、独立缓存、匹配器底座、手动选择器、诊断、批量刷新入口和数据审计工具，但还不能作为正式公开 release 发布，因为公开源码尚未内置可再分发的官方/授权 CAS 全量快照。
+这是第一个完整 CAS 中科院期刊分区版本。在现有 CCF 功能之外，本版新增独立 `CAS` 列、独立缓存、手动搜索、诊断和批量刷新，并内置 `hitfyd/ShowJCR` 的 2025 分区快照。
 
-### 已完成
+### 主要功能
 
 - 新增 `CAS` 列，与现有 `CCF` 列独立显示、独立排序、独立 tooltip。
 - 新增 CAS 期刊识别底座：优先 ISSN/eISSN 精确匹配，其次使用期刊全称、简称和别名；会议、图书、预印本等非期刊条目显示 `N/A`。
 - 新增 `extensions.ccf-for-zotero.casState` 私有缓存，CAS 的自动结果、手动设置和忽略状态不会污染 CCF 缓存，也不会写入 Zotero 元数据。
 - 新增 CAS 右键菜单和工具菜单：刷新所选条目、只刷新 Unknown/CAS None、清除缓存并重算、取消刷新、诊断、手动搜索期刊、标记 CAS None、忽略和恢复自动匹配。
-- 新增 `npm run build:cas-catalog`，用于把官方/授权 CAS JSON/CSV/TSV 导出转换为插件内置运行时 JSON。
-- 新增 `npm run audit:cas-catalog` 和 `npm run audit:cas-public-release`，发布前校验目录结构、来源哈希、分区字段和公开再分发边界。
+- 内置 `CAS-2025-showjcr` 快照：`21772` 本期刊，包含大类/小类分区、Top、预警标注等字段。
+- 新增 `npm run build:cas-catalog`，支持官方/授权导出和 ShowJCR CSV 结构转换为插件运行时 JSON。
+- 新增 `npm run audit:cas-catalog` 和 `npm run audit:cas-public-release`，校验目录结构、来源哈希、分区字段和公开再分发边界。
 
-### 尚未发布
+### 数据说明
 
-- 当前 `src/data/cas-journal-ranking.json` 是 `metadata-only` 占位快照，不含完整 CAS 数据；运行时会显示 `CAS 数据未内置`。
-- 正式 `0.2.0` 需要补齐官方/授权 CAS 快照，并确认是否允许随公开 XPI 再分发。
-- 真实 Zotero 10 中仍需验证 CAS 列启用、手动选择器、批量刷新取消、滚动位置和大库排序表现。
+- CAS 快照来自 `hitfyd/ShowJCR` 的 `FQBJCR2025-UTF8.csv`，其项目说明数据来源于 `advanced.fenqubiao.com` 查询结果。
+- 原始 CSV SHA-256：`481224dca2cacc1cce49afb44c968d734c834e498e5ff054f15efb5a548789fc`。
+- 当前快照标记为 `third-party-snapshot` / `redistribution: unknown`；这不是官方授权再分发数据，主要面向个人/本地研究便利。
 
 ### 校验
 
 - `npm run check` 通过。
-- `npm run audit:cas-catalog` 对 metadata-only 占位快照通过并给出预期警告。
-- `npm run audit:cas-public-release` 目前按预期失败，防止误发布没有完整授权数据的 CAS 版本。
+- `npm run audit:cas-catalog` 通过：`21772` journals，`1789` Top，`5` warned，`status=third-party-snapshot`。
+- `npm run audit:cas-public-release` 仍会拒绝第三方未知再分发授权数据；这是预期保护。
 
 ## v0.1.16
 

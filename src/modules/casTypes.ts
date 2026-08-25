@@ -20,6 +20,22 @@ export interface CASJournal {
   evidence?: string;
 }
 
+export type CASSourceKind =
+  | "official-platform"
+  | "official-announcement"
+  | "authorized-institution-export"
+  | "authorized-file"
+  | "third-party-public-repack"
+  | "fixture"
+  | "unknown";
+
+export interface CASCatalogProvenance {
+  sourceKind: CASSourceKind;
+  sourceURL?: string;
+  accessDate: string;
+  permissionNote: string;
+}
+
 export interface CASCatalog {
   version: string;
   edition?: string;
@@ -27,8 +43,13 @@ export interface CASCatalog {
   updateDate: string;
   source: string;
   sourceHash?: string;
+  provenance?: CASCatalogProvenance;
   redistribution?: "allowed" | "private-only" | "unknown";
-  dataStatus?: "official-snapshot" | "metadata-only" | "fixture";
+  dataStatus?:
+    | "official-snapshot"
+    | "third-party-snapshot"
+    | "metadata-only"
+    | "fixture";
   journals: CASJournal[];
 }
 
