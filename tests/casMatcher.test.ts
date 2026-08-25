@@ -3,6 +3,13 @@ import { describe, it } from "node:test";
 import { buildCASIndex, matchCASItem } from "../src/modules/casMatcher";
 import { CASCatalog } from "../src/modules/casTypes";
 import {
+  clearCASStorageMemoryCache,
+  getStoredCASState,
+  ignoreCASItems,
+  saveCASMatchResult,
+  saveManualCASMatches,
+} from "../src/modules/casStorage";
+import {
   extractISSNs,
   getJournalInputFingerprint,
   normalizeISSN,
@@ -139,5 +146,109 @@ describe("CAS journal matcher", () => {
       makeItem({ publicationTitle: "Computer Science Review" }),
     );
     assert.notEqual(first, second);
+  });
+
+  it("stores CAS state in an independent private prefs key", () => {
+    let rawStore = "";
+    const setCalls: Array<{ key: string; value: string }> = [];
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get(key: string) {
+          assert.equal(key, "extensions.ccf-for-zotero.casState");
+          return rawStore;
+        },
+        set(key: string, value: string) {
+          setCalls.push({ key, value });
+          rawStore = value;
+        },
+      },
+    };
+
+    try {
+      clearCASStorageMemoryCache();
+      const item = makeItem({ ISSN: "2045-2322" }, "journalArticle", 1201);
+      const result = matchCASItem(item, index);
+      saveCASMatchResult(item, result, fixtureCatalog.version);
+      clearCASStorageMemoryCache();
+
+      const stored = getStoredCASState(item, fixtureCatalog.version);
+      assert.equal(stored?.status, "matched");
+      assert.equal(stored?.journalKey, "scientific-reports");
+      assert.equal(setCalls.at(-1)?.key, "extensions.ccf-for-zotero.casState");
+      assert.doesNotMatch(rawStore, /itemState/);
+    } finally {
+      clearCASStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
+  it("invalidates stale automatic CAS state but preserves manual and ignored state", () => {
+    const originalItem = makeItem(
+      { publicationTitle: "Scientific Reports" },
+      "journalArticle",
+      1202,
+    );
+    const updatedItem = makeItem(
+      { publicationTitle: "Computer Science Review" },
+      "journalArticle",
+      1202,
+    );
+    const manualItem = makeItem(
+      { publicationTitle: "Something Else" },
+      "journalArticle",
+      1203,
+    );
+    const ignoredItem = makeItem(
+      { publicationTitle: "Anything" },
+      "journalArticle",
+      1204,
+    );
+    let rawStore = "";
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return rawStore;
+        },
+        set(_key: string, value: string) {
+          rawStore = value;
+        },
+      },
+    };
+
+    try {
+      clearCASStorageMemoryCache();
+      saveCASMatchResult(
+        originalItem,
+        matchCASItem(originalItem, index),
+        fixtureCatalog.version,
+      );
+      saveManualCASMatches(
+        [manualItem],
+        {
+          status: "matched",
+          source: "manual",
+          journalKey: "scientific-reports",
+          journalTitle: "Scientific Reports",
+        },
+        fixtureCatalog.version,
+      );
+      ignoreCASItems([ignoredItem]);
+      clearCASStorageMemoryCache();
+
+      assert.equal(getStoredCASState(updatedItem, fixtureCatalog.version), undefined);
+      assert.equal(
+        getStoredCASState(manualItem, "future-catalog")?.source,
+        "manual",
+      );
+      assert.equal(
+        getStoredCASState(ignoredItem, "future-catalog")?.status,
+        "ignored",
+      );
+    } finally {
+      clearCASStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
   });
 });

@@ -10,6 +10,8 @@ import {
   resolveJournalIdentityCandidates,
 } from "./journalIdentity";
 
+const CAS_MATCHER_VERSION = "0.2.0-cas-foundation";
+
 export interface CASIndex {
   catalog: CASCatalog;
   byISSN: Map<string, CASJournal>;
@@ -43,6 +45,10 @@ export function buildCASIndex(catalog: CASCatalog): CASIndex {
   }
 
   return { catalog, byISSN, byTitle };
+}
+
+export function getCASMatcherVersion(): string {
+  return CAS_MATCHER_VERSION;
 }
 
 function toMatchedResult(

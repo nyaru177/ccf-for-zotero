@@ -35,7 +35,8 @@ export type CASMatchStatus =
   | "matched"
   | "not-listed"
   | "unknown"
-  | "not-applicable";
+  | "not-applicable"
+  | "ignored";
 
 export interface CASMatchResult {
   status: CASMatchStatus;
@@ -56,8 +57,16 @@ export interface CASMatchResult {
   catalogVersion?: string;
 }
 
+export interface CASItemState extends CASMatchResult {
+  itemKey: string;
+  inputFingerprint?: string;
+  matcherVersion?: string;
+  updatedAt: string;
+}
+
 export interface JournalIdentityCandidate {
   field: string;
   value: string;
   kind: "issn" | "title" | "abbreviation";
 }
+
