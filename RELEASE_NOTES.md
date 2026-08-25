@@ -10,7 +10,7 @@
 - 新增 CAS 期刊识别底座：优先 ISSN/eISSN 精确匹配，其次使用期刊全称、简称和别名；会议、图书、预印本等非期刊条目显示 `N/A`。
 - 新增 `extensions.ccf-for-zotero.casState` 私有缓存，CAS 的自动结果、手动设置和忽略状态不会污染 CCF 缓存，也不会写入 Zotero 元数据。
 - 新增 CAS 右键菜单和工具菜单：刷新所选条目、只刷新 Unknown/CAS None、清除缓存并重算、取消刷新、诊断、手动搜索期刊、标记 CAS None、忽略和恢复自动匹配。
-- 新增 `npm run build:cas-catalog`，用于把官方/授权 CAS 导出转换为插件内置运行时 JSON。
+- 新增 `npm run build:cas-catalog`，用于把官方/授权 CAS JSON/CSV/TSV 导出转换为插件内置运行时 JSON。
 - 新增 `npm run audit:cas-catalog` 和 `npm run audit:cas-public-release`，发布前校验目录结构、来源哈希、分区字段和公开再分发边界。
 
 ### 尚未发布

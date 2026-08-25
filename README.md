@@ -21,7 +21,7 @@ V0.2 的目标是在现有 CCF 功能之外增加独立的 `CAS` 列，用来显
 CAS 分区的产品形态是“插件内置数据”，不是让普通用户手动导入表格。开发流程是：
 
 1. 维护者从中科院期刊分区表官方平台、官方公告、订阅机构授权导出或明确授权文件获取快照。
-2. 使用 `npm run build:cas-catalog` 把授权原始数据转换成插件运行时 JSON。
+2. 使用 `npm run build:cas-catalog` 把授权原始数据（JSON/CSV/TSV）转换成插件运行时 JSON。
 3. 使用 `npm run audit:cas-catalog` 校验 ISSN、重复项、分区范围、大小类字段和来源哈希。
 4. 只有在确认允许公开再分发时，`npm run audit:cas-public-release` 才会允许发布含完整 CAS 数据的公开 XPI。
 
@@ -104,7 +104,7 @@ npm run audit:cas-catalog
 如果你是维护者并且已经取得 CAS 官方/授权导出文件，可以用下面的命令生成内置快照。普通用户不需要执行这一步：
 
 ```powershell
-npm run build:cas-catalog -- --input <authorized-cas-export.json> --version <catalog-version> --edition <edition-label> --source <official-or-authorized-source> --redistribution private-only
+npm run build:cas-catalog -- --input <authorized-cas-export.json|csv|tsv> --version <catalog-version> --edition <edition-label> --source <official-or-authorized-source> --redistribution private-only
 npm run audit:cas-catalog
 ```
 

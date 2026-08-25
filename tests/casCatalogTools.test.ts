@@ -76,4 +76,66 @@ describe("CAS catalog build tools", () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("builds a CAS catalog from a CSV export without misreading false booleans", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "ccf-cas-catalog-csv-"));
+    const outputPath = join(tempDir, "cas-journal-ranking.json");
+
+    try {
+      const build = runNode([
+        "tools/build-cas-catalog-from-official-export.mjs",
+        "--input",
+        "tests/fixtures/cas-official-export.sample.csv",
+        "--output",
+        outputPath,
+        "--version",
+        "CAS-2025-authorized-csv-fixture",
+        "--edition",
+        "2025 CSV fixture",
+        "--source",
+        "Authorized CAS CSV export fixture for tool regression tests",
+        "--update-date",
+        "2026-08-25",
+        "--redistribution",
+        "private-only",
+      ]);
+
+      assert.equal(build.status, 0, build.stderr || build.stdout);
+
+      const catalog = JSON.parse(readFileSync(outputPath, "utf8"));
+      assert.equal(catalog.journals.length, 2);
+
+      const csr = catalog.journals.find(
+        (journal: { key: string }) => journal.key === "computer-science-review",
+      );
+      assert.equal(csr.titleZh, "计算机科学评论");
+      assert.deepEqual(csr.issn, ["1574-0137"]);
+      assert.deepEqual(csr.eissn, ["1876-7745"]);
+      assert.deepEqual(csr.majorPlacements, [
+        { category: "计算机科学", zone: 1 },
+      ]);
+      assert.deepEqual(csr.minorPlacements, [
+        { category: "COMPUTER SCIENCE, THEORY & METHODS", zone: 1 },
+      ]);
+      assert.equal(csr.isTop, false);
+      assert.equal(csr.isWarned, true);
+
+      const reports = catalog.journals.find(
+        (journal: { key: string }) => journal.key === "scientific-reports",
+      );
+      assert.equal(reports.isTop, false);
+      assert.equal(reports.isWarned, false);
+
+      const audit = runNode([
+        "tools/audit-cas-catalog.mjs",
+        "--input",
+        outputPath,
+      ]);
+
+      assert.equal(audit.status, 0, audit.stderr || audit.stdout);
+      assert.match(audit.stdout, /CAS catalog audit passed: 2 journals/);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
