@@ -19,7 +19,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "build": "zotero-plugin build && tsc --noEmit",
-    "test": "tsx --test tests/matcher.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",
     "start": "zotero-plugin serve"
   },
