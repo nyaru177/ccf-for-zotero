@@ -1,0 +1,10 @@
+{
+  "version": "CAS-official-snapshot-not-bundled",
+  "edition": "official-snapshot-pending",
+  "year": 2025,
+  "updateDate": "2026-08-25",
+  "source": "CAS/Fenqubiao official or authorized snapshot is required before public release. Public source keeps metadata only because the official platform user agreement restricts redistribution of partition data.",
+  "redistribution": "private-only",
+  "dataStatus": "metadata-only",
+  "journals": []
+}

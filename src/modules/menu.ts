@@ -4,6 +4,11 @@ import {
   openManualVenueSelector,
   venueToManualResult,
 } from "./manualSelector";
+import { hasBundledCASSnapshot } from "./casCatalog";
+import { formatCASItemDiagnostics } from "./casDiagnostics";
+import { filterCASItemsByDisplayStatus, refreshCASItems } from "./casService";
+import { clearCASItemStates, ignoreCASItems } from "./casStorage";
+import { CASItemState, CASMatchResult } from "./casTypes";
 import { formatItemDiagnostics } from "./diagnostics";
 import { filterItemsByDisplayStatus, refreshItemsRank } from "./rankService";
 import { clearItemStates, ignoreItems, saveManualMatches } from "./storage";
@@ -29,9 +34,10 @@ interface RefreshItemsWithProgressOptions {
 
 let nextRefreshJobID = 1;
 let activeRefreshJob: ActiveRefreshJob | undefined;
+let activeCASRefreshJob: ActiveRefreshJob | undefined;
 
 const text = {
-  root: "CCF 分级助手",
+  root: "CCF/CAS 分级助手",
   refresh: "刷新所选条目的 CCF 分级",
   refreshUnknownNone: "只刷新 Unknown / CCF None",
   clearAndRefresh: "清除缓存并重新识别所选条目",
@@ -70,6 +76,54 @@ const text = {
   ) =>
     `已取消 ${done}/${total}：匹配 ${summary.matched}，None ${summary.none}，Preprint ${summary.preprint}，Unknown ${summary.unknown}`,
   refreshFailed: (message: string) => `刷新失败：${message}`,
+};
+
+const casText = {
+  refresh: "CAS：刷新所选条目的中科院分区",
+  refreshUnknownNone: "CAS：只刷新 Unknown / CAS None",
+  clearAndRefresh: "CAS：清除缓存并重新识别",
+  cancelRefresh: "CAS：取消当前刷新",
+  diagnostics: "CAS：显示识别诊断",
+  ignore: "CAS：忽略所选条目",
+  restore: "CAS：恢复自动匹配",
+  noUnknownNoneSelection: "所选条目中没有 Unknown 或 CAS None。",
+  noSnapshot:
+    "当前版本未内置可用 CAS 官方/授权快照；确认数据后再刷新。",
+  noActiveRefresh: "当前没有正在运行的 CAS 刷新任务。",
+  refreshAlreadyRunning:
+    "已有 CAS 刷新任务正在运行。请先取消当前任务或等待完成。",
+  ignoredDone: (count: number) => `已忽略 ${count} 个条目的 CAS 分区。`,
+  restoredDone: (count: number) =>
+    `已恢复 ${count} 个条目的 CAS 自动匹配。`,
+  refreshTitle: "CAS 中科院分区刷新",
+  refreshStart: (count: number) => `准备刷新 ${count} 个条目`,
+  refreshScan: (done: number, total: number, title: string) =>
+    `筛选 ${done}/${total}：${title}`,
+  refreshProgress: (done: number, total: number, title: string) =>
+    `正在刷新 ${done}/${total}：${title}`,
+  refreshCancelRequested: "正在取消，将保存已完成结果...",
+  refreshDone: (
+    count: number,
+    summary: {
+      matched: number;
+      none: number;
+      unknown: number;
+      notApplicable: number;
+    },
+  ) =>
+    `完成 ${count} 条：匹配 ${summary.matched}，None ${summary.none}，Unknown ${summary.unknown}，N/A ${summary.notApplicable}`,
+  refreshCancelled: (
+    done: number,
+    total: number,
+    summary: {
+      matched: number;
+      none: number;
+      unknown: number;
+      notApplicable: number;
+    },
+  ) =>
+    `已取消 ${done}/${total}：匹配 ${summary.matched}，None ${summary.none}，Unknown ${summary.unknown}，N/A ${summary.notApplicable}`,
+  refreshFailed: (message: string) => `CAS 刷新失败：${message}`,
 };
 
 const kindOrder: CCFKind[] = ["conference", "journal"];
@@ -181,6 +235,24 @@ function createProgressWindow(win: Window, count: number) {
   }
 }
 
+function createCASProgressWindow(win: Window, count: number) {
+  try {
+    return new ztoolkit.ProgressWindow(casText.refreshTitle, {
+      window: win,
+      closeOnClick: false,
+      closeOtherProgressWindows: true,
+    })
+      .createLine({
+        text: casText.refreshStart(count),
+        progress: 0,
+      })
+      .show(-1);
+  } catch (error) {
+    ztoolkit.log("Could not open CAS refresh progress window", error);
+    return undefined;
+  }
+}
+
 function updateProgressWindow(
   progressWindow: ReturnType<typeof createProgressWindow>,
   line: { type?: string; text?: string; progress?: number },
@@ -215,6 +287,16 @@ function countResult(
   if (result.status === "none") summary.none += 1;
   if (result.status === "preprint") summary.preprint += 1;
   if (result.status === "unknown") summary.unknown += 1;
+}
+
+function countCASResult(
+  summary: { matched: number; none: number; unknown: number; notApplicable: number },
+  result: CASMatchResult,
+) {
+  if (result.status === "matched") summary.matched += 1;
+  if (result.status === "not-listed") summary.none += 1;
+  if (result.status === "unknown") summary.unknown += 1;
+  if (result.status === "not-applicable") summary.notApplicable += 1;
 }
 
 async function refreshItemsWithProgress(
@@ -398,6 +480,194 @@ function cancelActiveRefresh(win: Window) {
   });
 }
 
+async function refreshCASItemsWithProgress(
+  win: Window,
+  items: Zotero.Item[],
+  options: {
+    filterStatuses?: Array<CASItemState["status"]>;
+    noMatchedItemsMessage?: string;
+  } = {},
+) {
+  if (items.length === 0) {
+    alertUser(win, text.noSelection);
+    return;
+  }
+  if (!hasBundledCASSnapshot()) {
+    alertUser(win, casText.noSnapshot);
+    return;
+  }
+  if (activeCASRefreshJob) {
+    alertUser(win, casText.refreshAlreadyRunning);
+    return;
+  }
+
+  const job: ActiveRefreshJob = {
+    id: nextRefreshJobID++,
+    cancelRequested: false,
+  };
+  const progressWindow = createCASProgressWindow(win, items.length);
+  job.progressWindow = progressWindow;
+  activeCASRefreshJob = job;
+  const summary = { matched: 0, none: 0, unknown: 0, notApplicable: 0 };
+
+  try {
+    let itemsToRefresh = items;
+
+    if (options.filterStatuses?.length) {
+      const filterResult = await filterCASItemsByDisplayStatus(
+        items,
+        options.filterStatuses,
+        {
+          shouldCancel: () => job.cancelRequested,
+          onProgress: async (done, total, item) => {
+            if (
+              progressWindow &&
+              (done === 1 ||
+                done === total ||
+                done % PROGRESS_UPDATE_EVERY === 0)
+            ) {
+              updateProgressWindow(progressWindow, {
+                text: job.cancelRequested
+                  ? casText.refreshCancelRequested
+                  : casText.refreshScan(done, total, getItemTitle(item)),
+                progress: Math.round((done / total) * 100),
+              });
+            }
+
+            if (done % REFRESH_YIELD_EVERY === 0) {
+              await delay(win, 0);
+            }
+          },
+        },
+      );
+
+      if (filterResult.cancelled) {
+        updateProgressWindow(
+          progressWindow,
+          {
+            text: casText.refreshCancelled(
+              filterResult.processed,
+              filterResult.total,
+              summary,
+            ),
+            progress: Math.round(
+              (filterResult.processed / filterResult.total) * 100,
+            ),
+          },
+          4000,
+        );
+        return;
+      }
+
+      itemsToRefresh = filterResult.items;
+      if (itemsToRefresh.length === 0) {
+        const message = options.noMatchedItemsMessage || text.noSelection;
+        if (progressWindow) {
+          updateProgressWindow(
+            progressWindow,
+            {
+              text: message,
+              progress: 100,
+            },
+            3000,
+          );
+        } else {
+          alertUser(win, message);
+        }
+        return;
+      }
+
+      updateProgressWindow(progressWindow, {
+        text: `${casText.refreshStart(itemsToRefresh.length)}（${text.refreshCancelHint}）`,
+        progress: 0,
+      });
+      await delay(win, 0);
+    }
+
+    const result = await refreshCASItems(itemsToRefresh, {
+      saveBatchSize: REFRESH_SAVE_BATCH_SIZE,
+      shouldCancel: () => job.cancelRequested,
+      onProgress: async (done, total, item, matchResult) => {
+        countCASResult(summary, matchResult);
+        if (
+          progressWindow &&
+          (done === 1 || done === total || done % PROGRESS_UPDATE_EVERY === 0)
+        ) {
+          updateProgressWindow(progressWindow, {
+            text: job.cancelRequested
+              ? casText.refreshCancelRequested
+              : casText.refreshProgress(done, total, getItemTitle(item)),
+            progress: Math.round((done / total) * 100),
+          });
+        }
+
+        if (done % REFRESH_YIELD_EVERY === 0) {
+          await delay(win, 0);
+        }
+      },
+    });
+
+    refreshItemsView(
+      result.entries.map((entry) => entry.item),
+      "soft",
+    );
+    if (progressWindow) {
+      if (result.cancelled) {
+        updateProgressWindow(
+          progressWindow,
+          {
+            text: casText.refreshCancelled(result.processed, result.total, summary),
+            progress: Math.round((result.processed / result.total) * 100),
+          },
+          5000,
+        );
+      } else {
+        updateProgressWindow(
+          progressWindow,
+          {
+            type: "success",
+            text: casText.refreshDone(result.processed, summary),
+            progress: 100,
+          },
+          4000,
+        );
+      }
+    } else if (result.cancelled) {
+      alertUser(win, casText.refreshCancelled(result.processed, result.total, summary));
+    } else {
+      alertUser(win, casText.refreshDone(result.processed, summary));
+    }
+  } catch (error) {
+    ztoolkit.log("CAS refresh failed", error);
+    const failureText = casText.refreshFailed(formatErrorMessage(error));
+    if (progressWindow) {
+      updateProgressWindow(
+        progressWindow,
+        { type: "fail", text: failureText, progress: 100 },
+        6000,
+      );
+    } else {
+      alertUser(win, failureText);
+    }
+  } finally {
+    if (activeCASRefreshJob?.id === job.id) {
+      activeCASRefreshJob = undefined;
+    }
+  }
+}
+
+function cancelActiveCASRefresh(win: Window) {
+  if (!activeCASRefreshJob) {
+    alertUser(win, casText.noActiveRefresh);
+    return;
+  }
+
+  activeCASRefreshJob.cancelRequested = true;
+  updateProgressWindow(activeCASRefreshJob.progressWindow, {
+    text: casText.refreshCancelRequested,
+  });
+}
+
 function setMenuItemDisabled(item: Element, disabled: boolean) {
   if (disabled) {
     item.setAttribute("disabled", "true");
@@ -428,6 +698,28 @@ async function clearSelectedCacheAndRefresh(win: Window) {
   await refreshItemsWithProgress(win, items);
 }
 
+async function refreshSelectedCASItems(win: Window) {
+  await refreshCASItemsWithProgress(win, getSelectedRegularItems());
+}
+
+async function refreshSelectedCASUnknownNoneItems(win: Window) {
+  await refreshCASItemsWithProgress(win, getSelectedRegularItems(), {
+    filterStatuses: ["unknown", "not-listed"],
+    noMatchedItemsMessage: casText.noUnknownNoneSelection,
+  });
+}
+
+async function clearSelectedCASCacheAndRefresh(win: Window) {
+  const items = getSelectedRegularItems();
+  if (items.length === 0) {
+    alertUser(win, text.noSelection);
+    return;
+  }
+
+  clearCASItemStates(items);
+  await refreshCASItemsWithProgress(win, items);
+}
+
 function showSelectedDiagnostics(win: Window) {
   const item = getSelectedRegularItems()[0];
   if (!item) {
@@ -436,6 +728,16 @@ function showSelectedDiagnostics(win: Window) {
   }
 
   alertUser(win, formatItemDiagnostics(item));
+}
+
+function showSelectedCASDiagnostics(win: Window) {
+  const item = getSelectedRegularItems()[0];
+  if (!item) {
+    alertUser(win, text.noSelection);
+    return;
+  }
+
+  alertUser(win, formatCASItemDiagnostics(item));
 }
 
 function setManualVenue(win: Window, items: Zotero.Item[], venue: CCFVenue) {
@@ -558,6 +860,88 @@ function updateRefreshMenuState(cancelItem: Element, refreshItems: Element[]) {
   }
 }
 
+function updateCASRefreshMenuState(cancelItem: Element, refreshItems: Element[]) {
+  const isRefreshing = Boolean(activeCASRefreshJob);
+  setMenuItemDisabled(cancelItem, !isRefreshing);
+  for (const item of refreshItems) {
+    setMenuItemDisabled(item, isRefreshing);
+  }
+}
+
+function appendCASMenuSection(
+  doc: Document,
+  win: _ZoteroTypes.MainWindow,
+  popup: Element,
+) {
+  popup.appendChild(doc.createXULElement("menuseparator"));
+
+  const refresh = doc.createXULElement("menuitem");
+  refresh.setAttribute("label", casText.refresh);
+  refresh.addEventListener("command", () => void refreshSelectedCASItems(win));
+  popup.appendChild(refresh);
+
+  const refreshUnknownNone = doc.createXULElement("menuitem");
+  refreshUnknownNone.setAttribute("label", casText.refreshUnknownNone);
+  refreshUnknownNone.addEventListener(
+    "command",
+    () => void refreshSelectedCASUnknownNoneItems(win),
+  );
+  popup.appendChild(refreshUnknownNone);
+
+  const clearAndRefresh = doc.createXULElement("menuitem");
+  clearAndRefresh.setAttribute("label", casText.clearAndRefresh);
+  clearAndRefresh.addEventListener(
+    "command",
+    () => void clearSelectedCASCacheAndRefresh(win),
+  );
+  popup.appendChild(clearAndRefresh);
+
+  const cancelRefresh = doc.createXULElement("menuitem");
+  cancelRefresh.setAttribute("label", casText.cancelRefresh);
+  cancelRefresh.addEventListener("command", () => cancelActiveCASRefresh(win));
+  popup.appendChild(cancelRefresh);
+  popup.addEventListener("popupshowing", () =>
+    updateCASRefreshMenuState(cancelRefresh, [
+      refresh,
+      refreshUnknownNone,
+      clearAndRefresh,
+    ]),
+  );
+
+  const diagnostics = doc.createXULElement("menuitem");
+  diagnostics.setAttribute("label", casText.diagnostics);
+  diagnostics.addEventListener("command", () => showSelectedCASDiagnostics(win));
+  popup.appendChild(diagnostics);
+
+  const ignore = doc.createXULElement("menuitem");
+  ignore.setAttribute("label", casText.ignore);
+  ignore.addEventListener("command", () => {
+    const items = getSelectedRegularItems();
+    if (items.length === 0) {
+      alertUser(win, text.noSelection);
+      return;
+    }
+    ignoreCASItems(items);
+    refreshItemsView();
+    alertUser(win, casText.ignoredDone(items.length));
+  });
+  popup.appendChild(ignore);
+
+  const restore = doc.createXULElement("menuitem");
+  restore.setAttribute("label", casText.restore);
+  restore.addEventListener("command", () => {
+    const items = getSelectedRegularItems();
+    if (items.length === 0) {
+      alertUser(win, text.noSelection);
+      return;
+    }
+    clearCASItemStates(items);
+    refreshItemsView();
+    alertUser(win, casText.restoredDone(items.length));
+  });
+  popup.appendChild(restore);
+}
+
 export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
   const doc = win.document;
   const menu = doc.getElementById("zotero-itemmenu");
@@ -646,6 +1030,8 @@ export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
   });
   popup.appendChild(restore);
 
+  appendCASMenuSection(doc, win, popup);
+
   menu.appendChild(root);
 }
 
@@ -689,6 +1075,32 @@ export function registerToolsMenu(win: _ZoteroTypes.MainWindow) {
   popup.appendChild(cancelRefresh);
   popup.addEventListener("popupshowing", () =>
     updateRefreshMenuState(cancelRefresh, [refresh, refreshUnknownNone]),
+  );
+
+  popup.appendChild(doc.createXULElement("menuseparator"));
+
+  const refreshCAS = doc.createXULElement("menuitem");
+  refreshCAS.setAttribute("label", casText.refresh);
+  refreshCAS.addEventListener("command", () => void refreshSelectedCASItems(win));
+  popup.appendChild(refreshCAS);
+
+  const refreshCASUnknownNone = doc.createXULElement("menuitem");
+  refreshCASUnknownNone.setAttribute("label", casText.refreshUnknownNone);
+  refreshCASUnknownNone.addEventListener(
+    "command",
+    () => void refreshSelectedCASUnknownNoneItems(win),
+  );
+  popup.appendChild(refreshCASUnknownNone);
+
+  const cancelCASRefresh = doc.createXULElement("menuitem");
+  cancelCASRefresh.setAttribute("label", casText.cancelRefresh);
+  cancelCASRefresh.addEventListener("command", () => cancelActiveCASRefresh(win));
+  popup.appendChild(cancelCASRefresh);
+  popup.addEventListener("popupshowing", () =>
+    updateCASRefreshMenuState(cancelCASRefresh, [
+      refreshCAS,
+      refreshCASUnknownNone,
+    ]),
   );
 
   toolsPopup.appendChild(root);

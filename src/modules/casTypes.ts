@@ -28,6 +28,7 @@ export interface CASCatalog {
   source: string;
   sourceHash?: string;
   redistribution?: "allowed" | "private-only" | "unknown";
+  dataStatus?: "official-snapshot" | "metadata-only" | "fixture";
   journals: CASJournal[];
 }
 
@@ -36,6 +37,7 @@ export type CASMatchStatus =
   | "not-listed"
   | "unknown"
   | "not-applicable"
+  | "data-missing"
   | "ignored";
 
 export interface CASMatchResult {

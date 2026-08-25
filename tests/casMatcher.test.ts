@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { hasBundledCASSnapshot } from "../src/modules/casCatalog";
+import {
+  formatCASColumnDataForState,
+  unpackCASColumnData,
+} from "../src/modules/casColumn";
 import { buildCASIndex, matchCASItem } from "../src/modules/casMatcher";
-import { CASCatalog } from "../src/modules/casTypes";
+import { getCASDisplayState } from "../src/modules/casService";
+import { CASCatalog, CASItemState } from "../src/modules/casTypes";
 import {
   clearCASStorageMemoryCache,
   getStoredCASState,
@@ -246,6 +252,79 @@ describe("CAS journal matcher", () => {
         getStoredCASState(ignoredItem, "future-catalog")?.status,
         "ignored",
       );
+    } finally {
+      clearCASStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
+  it("formats CAS column data with stable sort keys and concise tooltips", () => {
+    const matched: CASItemState = {
+      itemKey: "1:1301",
+      status: "matched",
+      source: "auto",
+      journalKey: "computer-science-review",
+      journalTitle: "Computer Science Review",
+      abbreviation: "CSR",
+      majorPlacements: [{ category: "计算机科学", zone: 1 }],
+      minorPlacements: [{ category: "COMPUTER SCIENCE", zone: 1 }],
+      matchedField: "ISSN",
+      matchMethod: "ISSN 精确匹配",
+      updatedAt: "2026-08-25T10:00:00.000Z",
+    };
+    const none: CASItemState = {
+      itemKey: "1:1302",
+      status: "not-listed",
+      source: "auto",
+      venueText: "Journal of Extremely Local Experiments",
+      updatedAt: "2026-08-25T10:00:00.000Z",
+    };
+    const pending: CASItemState = {
+      itemKey: "1:1303",
+      status: "data-missing",
+      source: "auto",
+      matchMethod: "未内置官方/授权 CAS 全量快照",
+      updatedAt: "2026-08-25T10:00:00.000Z",
+    };
+
+    const matchedData = unpackCASColumnData(formatCASColumnDataForState(matched));
+    const noneData = unpackCASColumnData(formatCASColumnDataForState(none));
+    const pendingData = unpackCASColumnData(
+      formatCASColumnDataForState(pending),
+    );
+
+    assert.equal(matchedData.display, "CAS 1区 | CSR");
+    assert.match(matchedData.sortKey, /^001\|/);
+    assert.match(matchedData.title, /大类：计算机科学 1区/);
+    assert.match(matchedData.title, /ISSN 精确匹配/);
+    assert.equal(
+      noneData.display,
+      "CAS None | Journal of Extremely Local Experiments",
+    );
+    assert.match(noneData.sortKey, /^700\|/);
+    assert.equal(pendingData.display, "CAS 数据未内置");
+    assert.match(pendingData.sortKey, /^950\|/);
+  });
+
+  it("uses a data-missing display state when no authorized CAS snapshot is bundled", () => {
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return "";
+        },
+      },
+    };
+
+    try {
+      clearCASStorageMemoryCache();
+      assert.equal(hasBundledCASSnapshot(), false);
+      const state = getCASDisplayState(
+        makeItem({ publicationTitle: "Scientific Reports" }, "journalArticle", 1304),
+        { computeIfMissing: false },
+      );
+      assert.equal(state.status, "data-missing");
+      assert.match(state.matchMethod || "", /未内置官方\/授权/);
     } finally {
       clearCASStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;

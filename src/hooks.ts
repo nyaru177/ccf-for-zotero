@@ -1,3 +1,4 @@
+import { registerCASColumn } from "./modules/casColumn";
 import { registerCCFColumn } from "./modules/column";
 import { registerRightClickMenu, registerToolsMenu } from "./modules/menu";
 import { createZToolkit } from "./utils/ztoolkit";
@@ -9,7 +10,7 @@ async function onStartup() {
     Zotero.uiReadyPromise,
   ]);
 
-  await registerCCFColumn();
+  await Promise.all([registerCCFColumn(), registerCASColumn()]);
 
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
