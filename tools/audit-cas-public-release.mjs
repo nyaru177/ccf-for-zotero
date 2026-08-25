@@ -1,8 +1,19 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const structureAudit = spawnSync(
+  process.execPath,
+  [resolve(root, "tools/audit-cas-catalog.mjs"), "--release"],
+  { stdio: "inherit" },
+);
+
+if (structureAudit.status !== 0) {
+  process.exit(structureAudit.status || 1);
+}
+
 const catalogPath = resolve(root, "src/data/cas-journal-ranking.json");
 const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
 

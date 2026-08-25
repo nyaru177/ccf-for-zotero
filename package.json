@@ -22,6 +22,7 @@
     "test": "tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",
     "build:cas-catalog": "node tools/build-cas-catalog-from-official-export.mjs",
+    "audit:cas-catalog": "node tools/audit-cas-catalog.mjs",
     "audit:cas-public-release": "node tools/audit-cas-public-release.mjs",
     "start": "zotero-plugin serve"
   },
