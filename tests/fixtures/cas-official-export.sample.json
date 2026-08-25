@@ -1,0 +1,45 @@
+[
+  {
+    "Title": "Computer Science Review",
+    "TitleCN": "计算机科学评论",
+    "AbbrTitle": "Comput. Sci. Rev.",
+    "ISSN": "1574-0137",
+    "EISSN": "1876-7745",
+    "Aliases": "CSR; Computer Sci Review",
+    "Year": 2025,
+    "ZKY": [
+      {
+        "Name": "计算机科学",
+        "Section": 1
+      }
+    ],
+    "JCR": [
+      {
+        "NameCN": "COMPUTER SCIENCE, THEORY & METHODS",
+        "Section": 1
+      }
+    ],
+    "Warned": true,
+    "RowID": "sample-row-1"
+  },
+  {
+    "Title": "Scientific Reports",
+    "AbbrTitle": "Sci Rep",
+    "ISSN": "2045-2322",
+    "Year": 2025,
+    "ZKY": [
+      {
+        "Name": "综合性期刊",
+        "Section": 2
+      }
+    ],
+    "JCR": [
+      {
+        "Name": "MULTIDISCIPLINARY SCIENCES",
+        "Section": 2
+      }
+    ],
+    "Top": true,
+    "RowID": "sample-row-2"
+  }
+]

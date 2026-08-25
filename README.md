@@ -14,6 +14,19 @@
 - CCF 列排序使用轻量缓存排序键，避免在 5000+ 条主库中点击表头时同步重算全库。
 - 仅写入插件私有 `Zotero.Prefs` 缓存，不修改 Zotero 条目的标题、会议名、期刊名、Extra，也不创建子笔记。
 
+## V0.2 开发中：CAS 中科院分区
+
+V0.2 的目标是在现有 CCF 功能之外增加独立的 `CAS` 列，用来显示中科院期刊分区。这个功能仍然遵守本项目的边界：只服务 `CCF` 和 `CAS`，不加入 SCI/JCR、影响因子、引用次数、Semantic Scholar/DBLP fallback 或用户反馈上传。
+
+CAS 分区的产品形态是“插件内置数据”，不是让普通用户手动导入表格。开发流程是：
+
+1. 维护者从中科院期刊分区表官方平台、官方公告、订阅机构授权导出或明确授权文件获取快照。
+2. 使用 `npm run build:cas-catalog` 把授权原始数据转换成插件运行时 JSON。
+3. 使用 `npm run audit:cas-catalog` 校验 ISSN、重复项、分区范围、大小类字段和来源哈希。
+4. 只有在确认允许公开再分发时，`npm run audit:cas-public-release` 才会允许发布含完整 CAS 数据的公开 XPI。
+
+当前公开源码只包含 `metadata-only` 的 CAS 占位快照，因此运行时会显示 `CAS 数据未内置`，不会把缺少官方数据误报为 `CAS None`。如果完整 CAS 数据只能个人/机构内部使用，可以生成私有内置构建；公开 release 不能打包未经授权再分发的全量分区表。
+
 ## 安装
 
 1. 打开本项目的 GitHub Releases 页面。
@@ -73,6 +86,7 @@ V0.1.13 起，刷新完成后的列表重绘和进度窗口更新如果遇到 Zo
 - 国际会议/期刊 A/B/C 数据基于 CCF 2026 推荐国际学术会议和期刊目录整理。
 - 中文/国内高质量期刊 T1/T2/T3 数据基于 CCF 2025 计算领域高质量科技期刊分级目录整理。
 - 初始结构参考了开源项目 `CCF-Rank` 的数据组织方式，并对本地 CCF 官方 PDF 进行了人工/脚本审计。
+- CAS 中科院期刊分区功能正在 V0.2 开发中；完整目录只接受官方/授权快照，且必须通过来源哈希和发布权限审计后才能进入公开安装包。
 - 本插件不是 CCF 官方项目，目录数据可能存在整理误差；如发现问题，欢迎提交 issue。
 
 ## 开发
@@ -82,9 +96,25 @@ npm install
 npm run test
 npm run build
 npm run check
+npm run audit:cas-catalog
 ```
 
 构建产物位于 `.scaffold/build/`。
+
+如果你是维护者并且已经取得 CAS 官方/授权导出文件，可以用下面的命令生成内置快照。普通用户不需要执行这一步：
+
+```powershell
+npm run build:cas-catalog -- --input <authorized-cas-export.json> --version <catalog-version> --edition <edition-label> --source <official-or-authorized-source> --redistribution private-only
+npm run audit:cas-catalog
+```
+
+公开发布前必须额外运行：
+
+```powershell
+npm run audit:cas-public-release
+```
+
+如果数据没有明确的公开再分发授权，这个命令会失败；这是预期保护，避免把未经授权的 CAS 全量数据发布到 GitHub release。
 
 发布 release 时建议同时上传：
 
