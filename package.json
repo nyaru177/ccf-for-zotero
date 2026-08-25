@@ -21,6 +21,7 @@
     "build": "zotero-plugin build && tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",
+    "build:cas-catalog": "node tools/build-cas-catalog-from-official-export.mjs",
     "audit:cas-public-release": "node tools/audit-cas-public-release.mjs",
     "start": "zotero-plugin serve"
   },
