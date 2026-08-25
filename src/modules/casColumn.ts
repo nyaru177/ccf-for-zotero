@@ -174,7 +174,7 @@ export async function registerCASColumn() {
       if (!item || item.isAttachment() || item.isNote()) return "";
       try {
         return formatCASColumnDataForState(
-          getCASDisplayState(item, { computeIfMissing: false }),
+          getCASDisplayState(item),
         );
       } catch (error) {
         ztoolkit.log("CAS column dataProvider failed", error);

@@ -182,14 +182,10 @@ function refreshItemsView(items: Zotero.Item[] = [], mode: RefreshViewMode = "fu
   const ids = getItemIDs(items);
   if (mode === "soft" && ids.length > 0) {
     const itemsView = Zotero.getActiveZoteroPane()?.itemsView as any;
-    if (
-      callViewMethod(itemsView, "forceUpdate") ||
-      callViewMethod(itemsView, "invalidate") ||
-      callViewMethod(itemsView?.tree, "invalidate") ||
-      callViewMethod(itemsView?._tree, "invalidate")
-    ) {
-      return;
-    }
+    callViewMethod(itemsView, "forceUpdate");
+    callViewMethod(itemsView, "invalidate");
+    callViewMethod(itemsView?.tree, "invalidate");
+    callViewMethod(itemsView?._tree, "invalidate");
     triggerItemTreeRefresh(ids);
     return;
   }

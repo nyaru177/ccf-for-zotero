@@ -1,5 +1,19 @@
 # Release Notes
 
+## v0.2.1
+
+这是一次显示刷新热修，针对 v0.2.0 安装后 CCF/CAS 列大量显示 `Unknown` 的问题。
+
+### 修复
+
+- 修复 CCF/CAS 刷新完成后 Zotero 列可能没有重新取值的问题：刷新现在会在 item tree 软刷新后继续触发 item refresh 通知，避免出现“弹窗显示匹配成功，但列仍是 Unknown”。
+- CAS 列在无缓存时改为即时计算显示；CAS 匹配是本地 ISSN/题名索引查表，不再要求用户先手动刷新才看到分区。
+- 增加 `Information Processing & Management` 回归测试，确认截图中的条目可识别为 `CCF B | IPM` 和 `CAS 1区`。
+
+### 校验
+
+- `npm run check` 通过。
+
 ## v0.2.0
 
 这是第一个完整 CAS 中科院期刊分区版本。在现有 CCF 功能之外，本版新增独立 `CAS` 列、独立缓存、手动搜索、诊断和批量刷新，并内置 `hitfyd/ShowJCR` 的 2025 分区快照。

@@ -392,6 +392,19 @@ describe("CAS journal matcher", () => {
       );
       assert.equal(state.status, "matched");
       assert.equal(state.journalKey, "acm-computing-surveys");
+
+      const ipm = getCASDisplayState(
+        makeItem(
+          { publicationTitle: "Information Processing & Management" },
+          "journalArticle",
+          1305,
+        ),
+      );
+      const ipmData = unpackCASColumnData(formatCASColumnDataForState(ipm));
+      assert.equal(ipm.status, "matched");
+      assert.equal(ipm.journalKey, "information-processing-and-management");
+      assert.equal(ipm.majorPlacements?.[0]?.zone, 1);
+      assert.equal(ipmData.display, "CAS 1区 | INFORMATION PROCESSING & MANAGEMENT");
     } finally {
       clearCASStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;

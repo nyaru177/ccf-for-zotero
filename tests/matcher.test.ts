@@ -791,6 +791,41 @@ describe("local CCF matcher", () => {
     }
   });
 
+  it("uses refreshed CCF cache on the cheap column path", async () => {
+    let rawStore = "";
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return rawStore;
+        },
+        set(_key: string, value: string) {
+          rawStore = value;
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      const item = makeItem(
+        { publicationTitle: "Information Processing & Management" },
+        "journalArticle",
+        113,
+      );
+      const result = await refreshItemsRank([item]);
+      assert.equal(result.entries[0]?.result.status, "matched");
+
+      clearStorageMemoryCache();
+      const state = getDisplayState(item, { computeIfMissing: false });
+      assert.equal(state.status, "matched");
+      assert.equal(state.rank, "B");
+      assert.equal(state.abbr, "IPM");
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
   it("invalidates automatic cache when item venue inputs change", () => {
     const originalItem = makeItem({}, "conferencePaper", 111);
     const updatedItem = makeItem(
