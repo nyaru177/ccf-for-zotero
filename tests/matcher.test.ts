@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatColumnDataForState,
+  registerCCFColumn,
   unpackColumnData,
 } from "../src/modules/column";
 import { formatItemDiagnostics } from "../src/modules/diagnostics";
@@ -930,6 +931,55 @@ describe("local CCF matcher", () => {
     assert.equal(unknown.display, "Unknown");
     assert.equal(a.sortKey < none.sortKey, true);
     assert.equal(none.sortKey < unknown.sortKey, true);
+  });
+
+  it("computes CCF column values for uncached visible items", async () => {
+    let registeredColumn: any;
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return "";
+        },
+        set() {},
+      },
+      ItemTreeManager: {
+        async registerColumns(column: any) {
+          registeredColumn = column;
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      await registerCCFColumn();
+      const item = {
+        ...makeItem(
+          {
+            proceedingsTitle:
+              "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
+            conferenceName: "EMNLP 2025",
+            DOI: "10.18653/v1/2025.emnlp-main.1171",
+            url: "https://aclanthology.org/2025.emnlp-main.1171/",
+          },
+          "conferencePaper",
+          401,
+        ),
+        isAttachment() {
+          return false;
+        },
+        isNote() {
+          return false;
+        },
+      } as unknown as Zotero.Item;
+
+      const data = unpackColumnData(registeredColumn.dataProvider(item));
+      assert.equal(data.display, "CCF B | EMNLP");
+      assert.match(data.title, /proceedingsTitle/);
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
   });
 
   it("cancels batch refresh after saving completed entries", async () => {

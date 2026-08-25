@@ -150,9 +150,7 @@ export async function registerCCFColumn() {
     dataProvider: (item: Zotero.Item) => {
       if (!item || item.isAttachment() || item.isNote()) return "";
       try {
-        return formatColumnDataForState(
-          getDisplayState(item, { computeIfMissing: false }),
-        );
+        return formatColumnDataForState(getDisplayState(item));
       } catch (error) {
         ztoolkit.log("CCF column dataProvider failed", error);
         return formatColumnDataForState({

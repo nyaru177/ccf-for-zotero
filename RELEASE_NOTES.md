@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.2.2
+
+这是一次 CCF 列显示热修，针对“诊断结果正确，但 CCF 列仍大量显示 `Unknown`”的问题。
+
+### 修复
+
+- CCF 列现在对可见条目直接即时计算显示，不再只依赖缓存；这会让诊断窗口和列表列显示保持一致。
+- 增加列级回归测试，模拟 Zotero `ItemTreeManager` 调用 `dataProvider`，确认无缓存 EMNLP 条目能直接显示 `CCF B | EMNLP`。
+
+### 校验
+
+- `npm run check` 通过。
+
 ## v0.2.1
 
 这是一次显示刷新热修，针对 v0.2.0 安装后 CCF/CAS 列大量显示 `Unknown` 的问题。
