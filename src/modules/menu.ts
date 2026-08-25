@@ -4,15 +4,25 @@ import {
   openManualVenueSelector,
   venueToManualResult,
 } from "./manualSelector";
-import { hasBundledCASSnapshot } from "./casCatalog";
+import { getCASCatalogVersion, hasBundledCASSnapshot } from "./casCatalog";
 import { formatCASItemDiagnostics } from "./casDiagnostics";
+import {
+  casJournalToManualResult,
+  openManualCASJournalSelector,
+} from "./casManualSelector";
 import { filterCASItemsByDisplayStatus, refreshCASItems } from "./casService";
-import { clearCASItemStates, ignoreCASItems } from "./casStorage";
-import { CASItemState, CASMatchResult } from "./casTypes";
+import {
+  clearCASItemStates,
+  ignoreCASItems,
+  saveCASMatchResults,
+  saveManualCASMatches,
+} from "./casStorage";
+import { CASItemState, CASJournal, CASMatchResult } from "./casTypes";
 import { formatItemDiagnostics } from "./diagnostics";
 import { filterItemsByDisplayStatus, refreshItemsRank } from "./rankService";
 import { clearItemStates, ignoreItems, saveManualMatches } from "./storage";
 import { CCFKind, CCFRank, CCFVenue, ItemRankState, MatchResult } from "./types";
+import { resolveJournalIdentityCandidates } from "./journalIdentity";
 import { resolveVenueCandidates } from "./venueResolver";
 
 const REFRESH_YIELD_EVERY = 10;
@@ -84,6 +94,8 @@ const casText = {
   clearAndRefresh: "CAS：清除缓存并重新识别",
   cancelRefresh: "CAS：取消当前刷新",
   diagnostics: "CAS：显示识别诊断",
+  manual: "CAS：搜索期刊并手动设置...",
+  markNone: "CAS：手动标记为 CAS None",
   ignore: "CAS：忽略所选条目",
   restore: "CAS：恢复自动匹配",
   noUnknownNoneSelection: "所选条目中没有 Unknown 或 CAS None。",
@@ -92,6 +104,10 @@ const casText = {
   noActiveRefresh: "当前没有正在运行的 CAS 刷新任务。",
   refreshAlreadyRunning:
     "已有 CAS 刷新任务正在运行。请先取消当前任务或等待完成。",
+  manualDone: (count: number, journal: CASJournal) =>
+    `已为 ${count} 个条目设置为 CAS ${journal.majorPlacements?.[0]?.zone || journal.minorPlacements?.[0]?.zone || "?"}区 | ${journal.abbreviation || journal.title}。`,
+  markedNoneDone: (count: number) =>
+    `已将 ${count} 个条目标记为 CAS None。`,
   ignoredDone: (count: number) => `已忽略 ${count} 个条目的 CAS 分区。`,
   restoredDone: (count: number) =>
     `已恢复 ${count} 个条目的 CAS 自动匹配。`,
@@ -215,6 +231,27 @@ function getSuggestedQuery(items: Zotero.Item[]) {
   return resolveVenueCandidates(firstItem).candidates.find((candidate) =>
     candidate.value.trim(),
   )?.value || "";
+}
+
+function getSuggestedCASQuery(items: Zotero.Item[]) {
+  const firstItem = items[0];
+  if (!firstItem) return "";
+  const candidates = resolveJournalIdentityCandidates(firstItem);
+  return (
+    candidates.find((candidate) => candidate.kind !== "issn")?.value ||
+    candidates[0]?.value ||
+    ""
+  );
+}
+
+function getManualCASNoneText(item: Zotero.Item) {
+  return (
+    resolveJournalIdentityCandidates(item).find(
+      (candidate) => candidate.kind !== "issn",
+    )?.value ||
+    item.getField("title") ||
+    `条目 ${item.id}`
+  );
 }
 
 function createProgressWindow(win: Window, count: number) {
@@ -758,6 +795,66 @@ async function selectManualVenue(win: Window) {
   setManualVenue(win, items, venue);
 }
 
+function setManualCASJournal(
+  win: Window,
+  items: Zotero.Item[],
+  journal: CASJournal,
+) {
+  saveManualCASMatches(
+    items,
+    casJournalToManualResult(journal),
+    getCASCatalogVersion(),
+  );
+  refreshItemsView();
+  alertUser(win, casText.manualDone(items.length, journal));
+}
+
+async function selectManualCASJournal(win: Window) {
+  const items = getSelectedRegularItems();
+  if (items.length === 0) {
+    alertUser(win, text.noSelection);
+    return;
+  }
+  if (!hasBundledCASSnapshot()) {
+    alertUser(win, casText.noSnapshot);
+    return;
+  }
+
+  const journal = await openManualCASJournalSelector(
+    win,
+    getSuggestedCASQuery(items),
+  );
+  if (!journal) return;
+  setManualCASJournal(win, items, journal);
+}
+
+function markSelectedCASNone(win: Window) {
+  const items = getSelectedRegularItems();
+  if (items.length === 0) {
+    alertUser(win, text.noSelection);
+    return;
+  }
+
+  saveCASMatchResults(
+    items.map((item) => ({
+      item,
+      result: {
+        status: "not-listed",
+        source: "manual",
+        venueText: getManualCASNoneText(item),
+        matchedField: "manual",
+        matchedValue: getManualCASNoneText(item),
+        matchMethod: "用户手动标记 CAS None",
+        confidence: 1,
+        catalogVersion: getCASCatalogVersion(),
+      },
+    })),
+    getCASCatalogVersion(),
+  );
+  refreshItemsView();
+  alertUser(win, casText.markedNoneDone(items.length));
+}
+
 function countVenueAbbrs(
   groups: Map<CCFKind, Map<string, Map<CCFRank, CCFVenue[]>>>,
 ) {
@@ -912,6 +1009,16 @@ function appendCASMenuSection(
   diagnostics.setAttribute("label", casText.diagnostics);
   diagnostics.addEventListener("command", () => showSelectedCASDiagnostics(win));
   popup.appendChild(diagnostics);
+
+  const manual = doc.createXULElement("menuitem");
+  manual.setAttribute("label", casText.manual);
+  manual.addEventListener("command", () => void selectManualCASJournal(win));
+  popup.appendChild(manual);
+
+  const markNone = doc.createXULElement("menuitem");
+  markNone.setAttribute("label", casText.markNone);
+  markNone.addEventListener("command", () => markSelectedCASNone(win));
+  popup.appendChild(markNone);
 
   const ignore = doc.createXULElement("menuitem");
   ignore.setAttribute("label", casText.ignore);

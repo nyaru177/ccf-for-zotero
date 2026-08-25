@@ -5,6 +5,12 @@ import {
   formatCASColumnDataForState,
   unpackCASColumnData,
 } from "../src/modules/casColumn";
+import {
+  casJournalToManualResult,
+  getCASMajorCategories,
+  getCASMinorCategories,
+  searchCASJournalOptions,
+} from "../src/modules/casManualSelector";
 import { buildCASIndex, matchCASItem } from "../src/modules/casMatcher";
 import { getCASDisplayState } from "../src/modules/casService";
 import { CASCatalog, CASItemState } from "../src/modules/casTypes";
@@ -61,11 +67,14 @@ const fixtureCatalog: CASCatalog = {
     {
       key: "computer-science-review",
       title: "Computer Science Review",
+      titleZh: "计算机科学评论",
       abbreviation: "Comput. Sci. Rev.",
+      aliases: ["CSR"],
       issn: ["1574-0137"],
       eissn: ["1876-7745"],
       majorPlacements: [{ category: "计算机科学", zone: 1 }],
       minorPlacements: [{ category: "COMPUTER SCIENCE, THEORY & METHODS", zone: 1 }],
+      isWarned: true,
       evidence: "fixture-row-2",
     },
   ],
@@ -304,6 +313,57 @@ describe("CAS journal matcher", () => {
     assert.match(noneData.sortKey, /^700\|/);
     assert.equal(pendingData.display, "CAS 数据未内置");
     assert.match(pendingData.sortKey, /^950\|/);
+  });
+
+  it("searches CAS manual options by ISSN, title, abbreviation, category, and filters", () => {
+    assert.equal(
+      searchCASJournalOptions("2045-2322", {}, 5, fixtureCatalog)[0]?.journal.key,
+      "scientific-reports",
+    );
+    assert.equal(
+      searchCASJournalOptions("计算机科学评论", {}, 5, fixtureCatalog)[0]?.journal.key,
+      "computer-science-review",
+    );
+    assert.equal(
+      searchCASJournalOptions("CSR", {}, 5, fixtureCatalog)[0]?.journal.key,
+      "computer-science-review",
+    );
+    assert.equal(
+      searchCASJournalOptions(
+        "theory methods",
+        { zone: 1, minorCategory: "COMPUTER SCIENCE, THEORY & METHODS" },
+        5,
+        fixtureCatalog,
+      )[0]?.journal.key,
+      "computer-science-review",
+    );
+    assert.equal(
+      searchCASJournalOptions("", { flag: "top" }, 5, fixtureCatalog)[0]?.journal.key,
+      "scientific-reports",
+    );
+    assert.equal(
+      searchCASJournalOptions("", { flag: "warned" }, 5, fixtureCatalog)[0]?.journal.key,
+      "computer-science-review",
+    );
+    assert.deepEqual(new Set(getCASMajorCategories(fixtureCatalog)), new Set([
+      "综合性期刊",
+      "计算机科学",
+    ]));
+    assert.deepEqual(getCASMinorCategories(fixtureCatalog), [
+      "COMPUTER SCIENCE, THEORY & METHODS",
+      "MULTIDISCIPLINARY SCIENCES",
+    ]);
+  });
+
+  it("converts a CAS journal into a manual match result", () => {
+    const result = casJournalToManualResult(fixtureCatalog.journals[1]);
+    assert.equal(result.status, "matched");
+    assert.equal(result.source, "manual");
+    assert.equal(result.journalKey, "computer-science-review");
+    assert.equal(result.abbreviation, "Comput. Sci. Rev.");
+    assert.deepEqual(result.issn, ["15740137", "18767745"]);
+    assert.equal(result.majorPlacements?.[0]?.zone, 1);
+    assert.equal(result.matchMethod, "用户手动选择 CAS 期刊");
   });
 
   it("uses a data-missing display state when no authorized CAS snapshot is bundled", () => {
