@@ -1,170 +1,120 @@
 # CCF for Zotero
 
-一个面向中文用户的 Zotero 插件，用于在 Zotero 文献列表中离线显示 CCF 推荐会议/期刊等级和 CAS 中科院期刊分区。
+<p align="center">
+  <img src="addon/content/icons/ccf-cas-96.png" alt="CCF for Zotero" width="96">
+</p>
+
+<p align="center">
+  <strong>在 Zotero 中查看 CCF 与 CAS 分级</strong><br>
+  面向中国用户的离线分级助手，支持 Zotero 10。
+</p>
+
+<p align="center">
+  <a href="https://github.com/nyaru177/ccf-for-zotero/releases/latest"><img src="https://img.shields.io/github/v/release/nyaru177/ccf-for-zotero?style=flat-square&label=release" alt="Latest release"></a>
+  <a href="https://github.com/nyaru177/ccf-for-zotero/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/nyaru177/ccf-for-zotero/ci.yml?branch=v0.2-cas&style=flat-square&label=CI" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/Zotero-10.x-CC2936?style=flat-square&logo=zotero&logoColor=white" alt="Zotero 10">
+  <img src="https://img.shields.io/github/license/nyaru177/ccf-for-zotero?style=flat-square" alt="License">
+</p>
 
 当前版本：`0.2.5`
 
+## 界面预览
+
+<p align="center">
+  <img src="assets/readme/list-and-menu.png" alt="Zotero 文献列表中的 CCF 和 CAS 列以及右键菜单" width="96%">
+</p>
+
+<p align="center"><em>文献列表中的 CCF/CAS 分级列与统一右键菜单</em></p>
+
+<p align="center">
+  <img src="assets/readme/initialization-settings.png" alt="CCF CAS 初始化设置页" width="78%">
+</p>
+
+<p align="center"><em>从 Zotero 设置页选择范围、识别项目和缓存处理方式</em></p>
+
 ## 功能
 
-- 在 Zotero 文献列表中增加 `CCF` 列，显示 `CCF A/B/C`、`CCF T1/T2/T3`、`CCF None`、`Preprint`、`Unknown`。
-- 在 Zotero 文献列表中增加 `CAS` 列，显示 `CAS 1区/2区/3区/4区`、`CAS None`、`N/A`、`Unknown`。
-- 基于本地 CCF 2026 国际推荐目录和 2025 计算领域高质量科技期刊目录离线匹配，不依赖 Semantic Scholar、DBLP 或其他联网 API。
-- 内置 2025 CAS 中科院期刊分区快照，CAS 优先按 ISSN/eISSN 精确匹配，其次按期刊全称、简称和别名匹配。
-- 支持常见会议/期刊字段、缩写、Proceedings 长名称、ACL Anthology DOI/URL、IEEE DOI 前缀等线索。
-- 支持右键批量刷新、取消当前刷新、只刷新 `Unknown / CCF None`、清除缓存后重新识别、显示识别诊断。
-- 支持手动搜索并指定 CCF 来源或 CAS 期刊、按分类浏览候选、忽略条目、恢复自动匹配。
-- CCF/CAS 列排序使用轻量缓存排序键，避免在 5000+ 条主库中点击表头时同步重算全库。
-- 首次启动只对当前视图中最多 80 个未缓存条目做后台分批准备，带非模态进度提示，可从右键或 Tools/工具菜单取消；不会自动扫描整个主库。
-- CAS 目录以独立脚本按需载入，插件主脚本启动时不解析 12MB 级 CAS 数据；只有 CAS 刷新、CAS 手动搜索或 CAS 诊断真正需要目录时才载入。
-- 仅写入插件私有 `Zotero.Prefs` 缓存，不修改 Zotero 条目的标题、会议名、期刊名、Extra，也不创建子笔记。
-- 首次使用提供 CCF/CAS 初始化设置页，可选择当前集合、我的文库全部文献或当前选中条目，并支持只做 CCF、只做 CAS、增量识别、强制重算和取消。
-
-## CAS 中科院分区
-
-V0.2 在现有 CCF 功能之外增加独立的 `CAS` 列，用来显示中科院期刊分区。这个功能仍然遵守本项目边界：只服务 `CCF` 和 `CAS`，不加入 SCI/JCR、影响因子、引用次数、Semantic Scholar/DBLP fallback 或用户反馈上传。
-
-本版 CAS 数据直接内置在插件中，普通用户不需要手动导入表格。内置快照来自 `hitfyd/ShowJCR` 项目的 `FQBJCR2025-UTF8.csv`，该项目说明数据来源于 `advanced.fenqubiao.com` 查询结果。
-
-- 快照版本：`CAS-2025-showjcr`
-- 原始文件：`FQBJCR2025-UTF8.csv`
-- 原始文件 SHA-256：`481224dca2cacc1cce49afb44c968d734c834e498e5ff054f15efb5a548789fc`
-- 目录规模：`21772` 本期刊，包含大类/小类分区、Top、预警标注等字段。
-
-重要说明：本项目不是中科院分区表官方项目，`hitfyd/ShowJCR` 也不是官方授权再分发渠道。当前快照作为第三方公开数据内置，主要用于个人/本地研究便利；如果你要做严格公开分发、机构内合规部署或商业使用，请替换为官方/授权快照，并重新运行来源与发布权限审计。
+| 模块 | 支持内容 |
+| --- | --- |
+| CCF | 国际目录 A/B/C；CCF 计算领域高质量科技期刊 T1/T2/T3 |
+| CAS | 中科院期刊 1 区、2 区、3 区、4 区 |
+| 识别线索 | DOI、ISSN/eISSN、期刊/会议全称、简称、别名、长 proceedings 名称 |
+| 操作 | 批量刷新、仅刷新待确认结果、取消、手动设置、忽略、恢复自动匹配、诊断 |
+| 大库体验 | 缓存优先、轻量排序、分批处理、进度显示，不在排序时重算整库 |
 
 ## 安装
 
-1. 打开本项目的 GitHub Releases 页面。
-2. 下载最新的 `.xpi` 文件，例如 release 附件中的 `ccf-for-zotero.xpi`。
-3. 打开 Zotero，进入 `Tools` -> `Add-ons`。
-4. 点击齿轮图标，选择 `Install Add-on From File...`。
-5. 选择下载的 `.xpi`，安装后重启 Zotero。
+1. 前往 [Releases](https://github.com/nyaru177/ccf-for-zotero/releases) 下载 `ccf-for-zotero-0.2.5-zotero10.xpi`。
+2. 打开 Zotero，进入 `工具` -> `插件`。
+3. 点击右上角齿轮，选择 `Install Add-on From File...`。
+4. 选择下载的 `.xpi` 文件，安装后重启 Zotero。
 
-## 使用
+## 快速开始
 
-### 显示列
+1. 在 Zotero 文献列表表头右键，勾选 `CCF` 和 `CAS` 列。
+2. 选中文献后右键，在 `CCF/CAS 分级助手` 中选择刷新、诊断或手动设置。
+3. 第一次使用时，打开 `编辑` -> `设置` -> `CCF/CAS 分级助手`，选择处理范围和识别项目，点击 `开始初始化`。
 
-在 Zotero 文献列表表头右键，按需要勾选 `CCF` 列和 `CAS` 列。
+初始化支持当前集合、我的文库全部文献和当前选中条目。默认采用增量识别，已经有有效缓存的条目会跳过；任务带进度和取消操作，已完成的批次会保留。插件不会因为打开主库就自动刷新全部文献。
 
-### 刷新识别结果
+## 识别结果
 
-首次安装后不会自动弹出初始化窗口。请打开 Zotero `编辑` -> `设置`，选择 `CCF/CAS 分级助手` 页面，在页面中选择范围、识别项目和处理方式，再点击“开始初始化”。该页面会排除附件、笔记和子条目，并将已完成批次保存到插件私有缓存。
+| 显示 | 含义 |
+| --- | --- |
+| `CCF A/B/C` | 命中 CCF 国际推荐目录 |
+| `CCF T1/T2/T3` | 命中 CCF 计算领域高质量科技期刊目录 |
+| `CCF None` | 已识别出出版物，但不在当前 CCF 目录中 |
+| `CAS 1区/2区/3区/4区` | 命中内置 CAS 期刊分区快照 |
+| `CAS None` | 已识别为期刊，但当前快照中没有对应记录 |
+| `N/A` | 条目不是期刊，CAS 不适用 |
+| `Unknown` | 当前元数据不足以确定出版物身份 |
 
-初始化范围可以选择当前集合、我的文库全部文献或当前选中的文献；识别项目可以单独选择 CCF/CAS。默认使用增量模式，跳过有效缓存、手动设置和忽略状态；仅刷新待确认结果只处理无缓存、自动 `Unknown`、CCF `None` 和 CAS 未收录结果；强制重新识别只重算自动结果，不覆盖手动设置和忽略状态。CAS 的 `N/A` 表示条目不是期刊，不会被这个模式处理。
+`CCF A/B/C` 与 `CCF T1/T2/T3` 属于两套不同目录，插件不会将它们互相换算。
 
-初始化和普通批量刷新都有进度、当前条目和取消操作。取消后已经保存的批次保留，之后重新打开设置页即可继续增量识别。初始化设置页关闭后任务不会被取消，重新打开页面即可查看运行状态。任务运行时不会广播全量 item refresh，也不会把结果写入 Zotero 标签字段。
+## 手动设置
 
-选中文献后右键：
+自动识别不准确时，可以使用右键菜单中的搜索功能：
 
-- `CCF 分级助手` -> `刷新所选条目的 CCF 分级`
-- `CCF 分级助手` -> `只刷新 Unknown / CCF None`
-- `CCF 分级助手` -> `清除缓存并重新识别所选条目`
-- `CCF 分级助手` -> `取消当前 CCF 刷新`
-- `CCF 分级助手` -> `显示识别诊断`
+- CCF：搜索会议/期刊简称、全称、中文分类或英文领域词。
+- CAS：搜索 ISSN、期刊简称、全称、大类或小类。
 
-刷新结果会写入插件私有缓存。大批量刷新时会分批让出 UI；如果取消，已完成的条目结果会保留。初始化设置页中的“仅刷新待确认结果”与右键菜单里的 `只刷新 Unknown / CCF None` 遵循同一规则：先分批筛选，再刷新命中的条目；筛选阶段只读取有效缓存，缺缓存条目按 `Unknown` 进入刷新队列，不提前运行完整 matcher。刷新中也可以从顶部 `Tools/工具` 菜单进入 `CCF 分级助手` 取消。批量完成后的列更新优先使用 item tree 行级重绘，不广播全量 item refresh，避免触发其他插件对数千条目重复请求。
-插件首次打开主库时，CCF/CAS 列优先读取已经存在的私有缓存；没有缓存的行先显示 `Unknown`，后台准备完成后再通过行级轻量重绘更新可见结果，不在 Zotero 列排序回调中即时运行匹配器。
-新条目或元数据刚被魔法棒修正的条目，如果没有有效缓存，CCF 列会先显示 `Unknown`；执行刷新后会写入新的自动结果。这样点击 CCF 表头排序时不会为了无缓存条目同步重算整个主库。
-V0.1.16 起，自动缓存会记录识别输入指纹；本版会让旧自动缓存失效一次，之后如果 DOI、会议名、期刊名等关键字段变化，对应自动缓存会失效并在下一次刷新时更新。手动设置和忽略状态仍然保留，不会被自动覆盖。
-V0.1.13 起，刷新完成后的列表重绘和进度窗口更新如果遇到 Zotero 10 UI API 差异，会记录日志但不再把已完成的分级结果误报为整次刷新失败。
-
-`显示识别诊断` 只读取当前条目的字段和候选 venue，不会写入 Zotero 数据，适合排查为什么显示 `Unknown` 或 `CCF None`。诊断中会显示命中字段、命中线索和匹配规则。
-
-CAS 操作在同一个右键菜单里，以 `CAS：` 开头：
-
-- `CAS：刷新所选条目的中科院分区`
-- `CAS：只刷新 Unknown / CAS None`
-- `CAS：清除缓存并重新识别`
-- `CAS：取消当前刷新`
-- `CAS：显示识别诊断`
-
-CAS 刷新同样写入插件私有缓存，支持大批量进度和取消；已完成的条目结果会保留。
-
-### 手动修正
-
-如果自动识别不准确，可以右键：
-
-- `CCF 分级助手` -> `搜索 CCF 会议/期刊并设置...`
-- 或 `按 CCF 分类浏览手动设置...`
-- CAS 期刊可使用 `CAS：搜索期刊并手动设置...`
-
-手动设置只保存到插件私有缓存，不会改动 Zotero 原始元数据。
-推荐优先使用搜索弹窗，可输入简称、全称、中文分类或英文领域词，例如 `ACL`、`ACM MM`、`theory`、`security`。搜索框和筛选器由插件运行时创建，并使用自绘筛选菜单和候选列表，以兼容 Zotero 的混合 XUL/HTML 窗口。
-CAS 手动搜索可输入 ISSN、期刊简称、期刊全称、大类或小类，例如 `0360-0300`、`ACM COMPUTING SURVEYS`、`计算机科学`。
-
-## 识别口径
-
-- `ACL` 主会 long/short paper：识别为 `CCF A | ACL`，例如 `10.18653/v1/2026.acl-long.293`。
-- `Findings of ACL/EMNLP`：保持 `CCF None`，不会自动升成 ACL/EMNLP 主会。
-- `INFOCOM`、`WWW`、`NAACL` 等长 proceedings 名称会归一化识别。
-- `TOIS`、`TOSEM`、`TIST`、`TOMM`、`TKDD`、`TWEB`、`TOCHI`、`PACMHCI` 等 ACM 缩写期刊/Proceedings 形式会按 CCF 目录匹配。
-- `电子学报`、`计算机学报` 等中文期刊会按 CCF 2025 计算领域高质量科技期刊目录显示为 `CCF T1/T2/T3`，例如 `电子学报` -> `CCF T1 | 电子学报`。
-- `CCF A/B/C` 与 `CCF T1/T2/T3` 来自两套不同目录；`T1/T2/T3` 不等同于国际目录里的 `A/B/C`。
-- `Companion Proceedings`、`Extended Abstracts`、`Workshop(s)` 默认不会自动提升为主会；真实 CCF Workshop 条目仍可匹配。
-- IEEE DOI 前缀可作为 venue 线索：例如 `10.1109/INFOCOM...` 可识别为 `INFOCOM`，`10.1109/ICMISI...` 会显示 `CCF None | ICMISI`。
-- `CCF None` 只表示“不在当前 CCF 推荐目录中”，不等同于“低质量”或“野鸡会议”。
-- CAS 只适用于期刊条目；会议、图书、预印本等非期刊条目显示 `N/A`。
-- CAS 优先使用 ISSN/eISSN 精确匹配；没有 ISSN 时再使用期刊全称、简称和别名。
-- `CAS None` 表示插件已识别为期刊，但未命中当前内置 CAS 快照。
-- `Unknown` 表示插件没有找到足够的 CCF venue 或 CAS 期刊身份线索。
+手动设置、忽略状态和自动识别结果分别保存，手动选择不会被后续自动刷新覆盖。
 
 ## 数据来源
 
-- 国际会议/期刊 A/B/C 数据基于 CCF 2026 推荐国际学术会议和期刊目录整理。
-- 中文/国内高质量期刊 T1/T2/T3 数据基于 CCF 2025 计算领域高质量科技期刊分级目录整理。
-- 初始结构参考了开源项目 `CCF-Rank` 的数据组织方式，并对本地 CCF 官方 PDF 进行了人工/脚本审计。
-- CAS 中科院期刊分区数据来自 `hitfyd/ShowJCR` 的 `FQBJCR2025-UTF8.csv`，其 README 说明数据来源于 `advanced.fenqubiao.com`；本项目将该 CSV 转换为内置运行时 JSON。
-- CAS 快照已记录原始文件哈希、访问日期和来源说明；`npm run audit:cas-catalog` 会校验分区字段、ISSN、重复 key、Top/预警标注和来源哈希。
-- 本插件不是 CCF 或中科院分区表官方项目，目录数据可能存在整理误差或第三方来源限制；如发现问题，欢迎提交 issue。
+- CCF 国际会议/期刊 A/B/C：根据 [CCF 推荐国际学术会议和期刊目录](https://www.ccf.org.cn/Academic_Evaluation/By_category/) 整理。
+- CCF 中文/国内高质量科技期刊 T1/T2/T3：根据 CCF 2025 计算领域高质量科技期刊分级目录整理。
+- CAS：内置 [hitfyd/ShowJCR](https://github.com/hitfyd/ShowJCR) 的 `FQBJCR2025-UTF8.csv` 转换快照，共 21,772 本期刊。
+
+CAS 快照的版本、来源哈希和字段说明记录在仓库代码与 [发布说明](RELEASE_NOTES.md) 中。它是第三方数据快照，不等同于中科院官方发布表。
+
+## 隐私与性能
+
+- 默认离线运行，不调用 Semantic Scholar、DBLP 或其他联网 API。
+- 结果保存在插件私有缓存中，不修改标题、作者、期刊名、会议名和 `Extra`。
+- 不创建子笔记，不向外部上传文献数据。
+- 自定义列读取缓存，批量任务分批让出界面并支持取消。
 
 ## 开发
 
 ```powershell
-npm install
-npm run test
-npm run build
+npm ci
 npm run check
 npm run audit:cas-catalog
 ```
 
 构建产物位于 `.scaffold/build/`。
 
-如果你是维护者并且需要重建 CAS 内置快照，可以用下面的命令生成运行时 JSON。普通用户不需要执行这一步：
-
-```powershell
-npm run build:cas-catalog -- --input <cas-export.json|csv|tsv> --catalog-version <catalog-version> --edition <edition-label> --source <source-description> --source-kind <source-kind> --permission-note <permission-note> --redistribution private-only
-npm run audit:cas-catalog
-```
-
-公开发布前必须额外运行：
-
-```powershell
-npm run audit:cas-public-release
-```
-
-如果数据没有明确的公开再分发授权，`audit:cas-public-release` 会失败；这是预期保护。当前内置的 ShowJCR 快照是第三方公开数据，`audit:cas-catalog` 通过，但不被标记为官方/授权再分发数据。
-
-发布 release 时建议同时上传：
-
-- `ccf-for-zotero.xpi`：给用户手动下载安装，也供自动更新清单引用。
-- `update.json`：Zotero 自动更新清单。
-
-## 隐私与安全
-
-- 默认不联网。
-- 不修改 Zotero 条目字段。
-- 不写入 `Extra`。
-- 不创建子笔记。
-- 自动/手动识别状态保存在插件私有偏好设置中。
+欢迎通过 [Issues](https://github.com/nyaru177/ccf-for-zotero/issues) 报告识别问题或提交改进建议。
 
 ## 致谢
 
-本项目开发过程中参考和学习了以下项目：
+本项目参考了以下项目的数据组织和 Zotero 插件实现：
 
-- `CCF-Rank`
-- `Zotero CCF Plus`
-- Zotero Plugin Scaffold / Zotero Plugin Toolkit 生态
+- [CCF-Rank](https://github.com/GroundbreakerLhy/CCF-Rank)
+- [Zotero CCF Plus](https://github.com/Fangziyang0910/zotero-ccf-plus)
+- [Zotero Plugin Scaffold](https://github.com/windingwind/zotero-plugin-template)
 
 ## 许可证
 
-本项目以 `AGPL-3.0-or-later` 协议开源。
+本项目以 [AGPL-3.0-or-later](LICENSE) 协议开源。
