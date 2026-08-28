@@ -1,4 +1,8 @@
-import { getCASCatalog, getCASCatalogVersion } from "./casCatalog";
+import {
+  ensureCASCatalog,
+  getCASCatalog,
+  getCASCatalogVersion,
+} from "./casCatalog";
 import { CASCatalog, CASJournal, CASMatchResult, CASZone } from "./casTypes";
 import { normalizeISSN, normalizeJournalTitle } from "./journalIdentity";
 
@@ -458,6 +462,7 @@ export async function openManualCASJournalSelector(
   win: Window,
   initialQuery = "",
 ): Promise<CASJournal | undefined> {
+  await ensureCASCatalog();
   let selectedJournal: CASJournal | undefined;
   let currentOptions: CASJournalSearchOption[] = [];
   const dialogData: any = {};

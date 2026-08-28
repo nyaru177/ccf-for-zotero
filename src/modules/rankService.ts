@@ -10,6 +10,7 @@ import { ItemRankState, MatchResult } from "./types";
 
 export interface GetDisplayStateOptions {
   computeIfMissing?: boolean;
+  validateInputFingerprint?: boolean;
 }
 
 export interface RefreshItemsRankOptions {
@@ -56,7 +57,9 @@ export function getDisplayState(
   item: Zotero.Item,
   options: GetDisplayStateOptions = {},
 ): ItemRankState {
-  const stored = getStoredState(item);
+  const stored = getStoredState(item, {
+    validateInputFingerprint: options.validateInputFingerprint,
+  });
   if (stored) {
     return stored;
   }
@@ -72,6 +75,23 @@ export function getDisplayState(
 
   const result = resolveItemRank(item);
   return toItemRankState(item, result);
+}
+
+/**
+ * The Zotero custom-column hot path must never run the matcher or read every
+ * venue field. Background refreshes populate this cache separately.
+ */
+export function getColumnDisplayState(item: Zotero.Item): ItemRankState {
+  return getDisplayState(item, {
+    computeIfMissing: false,
+    validateInputFingerprint: false,
+  });
+}
+
+export function hasCachedRankState(item: Zotero.Item): boolean {
+  return Boolean(
+    getStoredState(item, { validateInputFingerprint: false }),
+  );
 }
 
 function toItemRankState(item: Zotero.Item, result: MatchResult): ItemRankState {
@@ -114,7 +134,10 @@ export async function filterItemsByDisplayStatus(
     if (options.shouldCancel?.()) break;
 
     const item = items[index];
-    const state = getDisplayState(item);
+    const state = getDisplayState(item, {
+      computeIfMissing: false,
+      validateInputFingerprint: true,
+    });
     processed = index + 1;
     if (statusSet.has(state.status)) {
       matchedItems.push(item);

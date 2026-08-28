@@ -2,6 +2,7 @@ import { config } from "../../package.json";
 import { getCASMatcherVersion } from "./casMatcher";
 import { CASItemState, CASMatchResult } from "./casTypes";
 import { getJournalInputFingerprint } from "./journalIdentity";
+import { readJSONPreference, writeJSONPreference } from "./preferenceStore";
 
 const CAS_STORE_KEY = `${config.prefsPrefix}.casState`;
 const CAS_STORE_VERSION = 1;
@@ -12,25 +13,18 @@ interface CASStateStore {
 }
 
 let casStoreCache: CASStateStore | undefined;
+const invalidatedItemIDs = new Set<string>();
 
 function emptyCASStore(): CASStateStore {
   return { version: CAS_STORE_VERSION, items: {} };
 }
 
 function readCASStoreFromPrefs(): CASStateStore {
-  const raw = Zotero.Prefs.get(CAS_STORE_KEY, true) as string;
-  if (!raw) return emptyCASStore();
-
-  try {
-    const parsed = JSON.parse(raw) as CASStateStore;
-    return {
-      version: parsed.version || CAS_STORE_VERSION,
-      items: parsed.items || {},
-    };
-  } catch (error) {
-    ztoolkit?.log?.("Could not parse CAS state store", error);
-    return emptyCASStore();
-  }
+  const parsed = readJSONPreference<Partial<CASStateStore>>(CAS_STORE_KEY, {});
+  return {
+    version: parsed.version || CAS_STORE_VERSION,
+    items: parsed.items || {},
+  };
 }
 
 function loadCASStore(): CASStateStore {
@@ -41,8 +35,8 @@ function loadCASStore(): CASStateStore {
 }
 
 function saveCASStore(store: CASStateStore) {
+  writeJSONPreference(CAS_STORE_KEY, store);
   casStoreCache = store;
-  Zotero.Prefs.set(CAS_STORE_KEY, JSON.stringify(store), true);
 }
 
 export function getCASItemKey(item: Zotero.Item): string {
@@ -51,19 +45,36 @@ export function getCASItemKey(item: Zotero.Item): string {
 
 export function clearCASStorageMemoryCache() {
   casStoreCache = undefined;
+  invalidatedItemIDs.clear();
+}
+
+export interface GetStoredCASStateOptions {
+  validateInputFingerprint?: boolean;
+}
+
+export function invalidateCASItemStates(ids: Array<string | number>) {
+  for (const id of ids) {
+    invalidatedItemIDs.add(String(id));
+  }
 }
 
 export function getStoredCASState(
   item: Zotero.Item,
   catalogVersion: string,
+  options: GetStoredCASStateOptions = {},
 ): CASItemState | undefined {
   const state = loadCASStore().items[getCASItemKey(item)];
   if (!state) return undefined;
   if (state.source === "manual") return state;
+  if (invalidatedItemIDs.has(String(item.id))) return undefined;
+
+  const validateInputFingerprint = options.validateInputFingerprint !== false;
   if (
     state.catalogVersion === catalogVersion &&
     state.matcherVersion === getCASMatcherVersion() &&
-    state.inputFingerprint === getJournalInputFingerprint(item)
+    (!validateInputFingerprint ||
+      !state.inputFingerprint ||
+      state.inputFingerprint === getJournalInputFingerprint(item))
   ) {
     return state;
   }
@@ -82,6 +93,7 @@ export function saveCASMatchResults(
 
   for (const { item, result } of entries) {
     const itemKey = getCASItemKey(item);
+    invalidatedItemIDs.delete(String(item.id));
     store.items[itemKey] = {
       ...result,
       itemKey,

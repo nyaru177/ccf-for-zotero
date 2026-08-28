@@ -1,5 +1,5 @@
 import { config } from "../../package.json";
-import { getCASDisplayState } from "./casService";
+import { getCASColumnDisplayState } from "./casService";
 import { CASItemState, CASPlacement } from "./casTypes";
 
 const dataKey = "ccfForZoteroCAS";
@@ -174,7 +174,7 @@ export async function registerCASColumn() {
       if (!item || item.isAttachment() || item.isNote()) return "";
       try {
         return formatCASColumnDataForState(
-          getCASDisplayState(item),
+          getCASColumnDisplayState(item),
         );
       } catch (error) {
         ztoolkit.log("CAS column dataProvider failed", error);

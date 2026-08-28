@@ -20,6 +20,7 @@ import {
 import { formatNonCcfVenueText } from "../src/modules/nonCcfAliases";
 import {
   filterItemsByDisplayStatus,
+  getColumnDisplayState,
   getDisplayState,
   refreshItemsRank,
 } from "../src/modules/rankService";
@@ -933,7 +934,7 @@ describe("local CCF matcher", () => {
     assert.equal(none.sortKey < unknown.sortKey, true);
   });
 
-  it("computes CCF column values for uncached visible items", async () => {
+  it("keeps CCF column reads cheap and uses the cache after refresh", async () => {
     let registeredColumn: any;
     const originalZotero = (globalThis as any).Zotero;
     (globalThis as any).Zotero = {
@@ -974,8 +975,13 @@ describe("local CCF matcher", () => {
       } as unknown as Zotero.Item;
 
       const data = unpackColumnData(registeredColumn.dataProvider(item));
-      assert.equal(data.display, "CCF B | EMNLP");
-      assert.match(data.title, /proceedingsTitle/);
+      assert.equal(getColumnDisplayState(item).status, "unknown");
+      assert.equal(data.display, "Unknown");
+      assert.match(data.title, /未在列排序路径即时计算/);
+
+      await refreshItemsRank([item]);
+      const refreshed = unpackColumnData(registeredColumn.dataProvider(item));
+      assert.equal(refreshed.display, "CCF B | EMNLP");
     } finally {
       clearStorageMemoryCache();
       (globalThis as any).Zotero = originalZotero;
@@ -1036,7 +1042,7 @@ describe("local CCF matcher", () => {
     }
   });
 
-  it("filters Unknown and CCF None items with cancellation support", async () => {
+  it("filters cached CCF None and uncached Unknown items without computing matches", async () => {
     let cancelled = false;
     let progressCalls = 0;
     const originalZotero = (globalThis as any).Zotero;
@@ -1078,7 +1084,7 @@ describe("local CCF matcher", () => {
       assert.equal(result.processed, 3);
       assert.deepEqual(
         result.items.map((item) => item.id),
-        [302, 303],
+        [301, 302, 303],
       );
       assert.equal(progressCalls, 3);
     } finally {

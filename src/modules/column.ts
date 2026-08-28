@@ -1,6 +1,6 @@
 import { config } from "../../package.json";
 import { formatNonCcfVenueText } from "./nonCcfAliases";
-import { getDisplayState } from "./rankService";
+import { getColumnDisplayState } from "./rankService";
 import { ItemRankState } from "./types";
 
 const dataKey = "ccfForZoteroRank";
@@ -150,7 +150,7 @@ export async function registerCCFColumn() {
     dataProvider: (item: Zotero.Item) => {
       if (!item || item.isAttachment() || item.isNote()) return "";
       try {
-        return formatColumnDataForState(getDisplayState(item));
+        return formatColumnDataForState(getColumnDisplayState(item));
       } catch (error) {
         ztoolkit.log("CCF column dataProvider failed", error);
         return formatColumnDataForState({

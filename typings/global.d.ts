@@ -13,7 +13,8 @@ declare const ztoolkit: ZToolkit;
 
 declare const rootURI: string;
 
+declare const Services: any;
+
 declare const addon: import("../src/addon").default;
 
 declare const __env__: "production" | "development";
-

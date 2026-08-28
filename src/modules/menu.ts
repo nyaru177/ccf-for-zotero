@@ -4,7 +4,21 @@ import {
   openManualVenueSelector,
   venueToManualResult,
 } from "./manualSelector";
-import { getCASCatalogVersion, hasBundledCASSnapshot } from "./casCatalog";
+import { config } from "../../package.json";
+import {
+  cancelBackgroundWarmup,
+  isBackgroundWarmupRunning,
+} from "./backgroundWarmup";
+import {
+  cancelInitialization,
+  isInitializationRunning,
+} from "./initialization";
+import { openPreferencesPane } from "./preferences";
+import {
+  ensureCASCatalog,
+  getCASCatalogVersion,
+  hasBundledCASSnapshot,
+} from "./casCatalog";
 import { formatCASItemDiagnostics } from "./casDiagnostics";
 import {
   casJournalToManualResult,
@@ -24,10 +38,13 @@ import { clearItemStates, ignoreItems, saveManualMatches } from "./storage";
 import { CCFKind, CCFRank, CCFVenue, ItemRankState, MatchResult } from "./types";
 import { resolveJournalIdentityCandidates } from "./journalIdentity";
 import { resolveVenueCandidates } from "./venueResolver";
+import { refreshItemsViewAndMaintainSelection, softRefreshItemsView } from "./viewRefresh";
 
 const REFRESH_YIELD_EVERY = 10;
 const REFRESH_SAVE_BATCH_SIZE = 500;
 const PROGRESS_UPDATE_EVERY = 25;
+const PLUGIN_MENU_ICON =
+  "chrome://" + config.addonRef + "/content/icons/ccf-cas-48.png";
 
 type RefreshViewMode = "full" | "soft";
 
@@ -35,6 +52,7 @@ interface ActiveRefreshJob {
   id: number;
   cancelRequested: boolean;
   progressWindow?: ReturnType<typeof createProgressWindow>;
+  lastViewRefreshAt: number;
 }
 
 interface RefreshItemsWithProgressOptions {
@@ -48,10 +66,16 @@ let activeCASRefreshJob: ActiveRefreshJob | undefined;
 
 const text = {
   root: "CCF/CAS 分级助手",
+  taskGroup: "初始化与后台任务",
+  ccfGroup: "CCF 分级",
+  casGroup: "CAS 中科院分区",
   refresh: "刷新所选条目的 CCF 分级",
   refreshUnknownNone: "只刷新 Unknown / CCF None",
   clearAndRefresh: "清除缓存并重新识别所选条目",
   cancelRefresh: "取消当前 CCF 刷新",
+  cancelWarmup: "取消后台准备",
+  initialization: "打开 CCF/CAS 设置",
+  cancelInitialization: "取消初始化",
   diagnostics: "显示识别诊断",
   manual: "搜索 CCF 会议/期刊并设置...",
   browse: "按 CCF 分类浏览手动设置...",
@@ -62,6 +86,7 @@ const text = {
   noActiveRefresh: "当前没有正在运行的 CCF 刷新任务。",
   refreshAlreadyRunning:
     "已有 CCF 刷新任务正在运行。请先取消当前任务或等待完成。",
+  initializationRunning: "初始化任务正在运行，请先完成或取消初始化。",
   manualDone: (count: number, venue: CCFVenue) =>
     `已为 ${count} 个条目设置为 CCF ${venue.rank} | ${venue.abbr}。`,
   ignoredDone: (count: number) => `已忽略 ${count} 个条目。`,
@@ -88,6 +113,30 @@ const text = {
   refreshFailed: (message: string) => `刷新失败：${message}`,
 };
 
+const ccfMenuLabels = {
+  refresh: "刷新所选条目",
+  refreshUnknownNone: "只刷新 Unknown / CCF None",
+  clearAndRefresh: "清除缓存并重新识别",
+  cancelRefresh: "取消当前刷新",
+  diagnostics: "显示识别诊断",
+  manual: "搜索会议/期刊并设置...",
+  browse: "按分类浏览手动设置...",
+  ignore: "忽略所选条目",
+  restore: "恢复自动匹配",
+};
+
+const casMenuLabels = {
+  refresh: "刷新所选条目",
+  refreshUnknownNone: "只刷新 Unknown / CAS None",
+  clearAndRefresh: "清除缓存并重新识别",
+  cancelRefresh: "取消当前刷新",
+  diagnostics: "显示识别诊断",
+  manual: "搜索期刊并手动设置...",
+  markNone: "手动标记为 CAS None",
+  ignore: "忽略所选条目",
+  restore: "恢复自动匹配",
+};
+
 const casText = {
   refresh: "CAS：刷新所选条目的中科院分区",
   refreshUnknownNone: "CAS：只刷新 Unknown / CAS None",
@@ -104,6 +153,7 @@ const casText = {
   noActiveRefresh: "当前没有正在运行的 CAS 刷新任务。",
   refreshAlreadyRunning:
     "已有 CAS 刷新任务正在运行。请先取消当前任务或等待完成。",
+  initializationRunning: "初始化任务正在运行，请先完成或取消初始化。",
   manualDone: (count: number, journal: CASJournal) =>
     `已为 ${count} 个条目设置为 CAS ${journal.majorPlacements?.[0]?.zone || journal.minorPlacements?.[0]?.zone || "?"}区 | ${journal.abbreviation || journal.title}。`,
   markedNoneDone: (count: number) =>
@@ -150,50 +200,20 @@ function getSelectedRegularItems(): Zotero.Item[] {
   return items.filter((item) => item.isRegularItem());
 }
 
-function getItemIDs(items: Zotero.Item[]) {
-  return items.map((item) => item.id).filter((id) => typeof id === "number");
-}
-
-function callViewMethod(target: any, method: string) {
-  if (typeof target?.[method] !== "function") return false;
-  try {
-    target[method]();
-    return true;
-  } catch (error) {
-    ztoolkit.log(`Could not refresh CCF item view via ${method}`, error);
-    return false;
-  }
-}
-
-function triggerItemTreeRefresh(ids: number[]) {
-  try {
-    const result = Zotero.Notifier.trigger("refresh", "item", ids);
-    if (result && typeof (result as Promise<void>).catch === "function") {
-      void (result as Promise<void>).catch((error) => {
-        ztoolkit.log("Could not notify CCF item refresh", error);
-      });
-    }
-  } catch (error) {
-    ztoolkit.log("Could not trigger CCF item refresh", error);
-  }
-}
-
 function refreshItemsView(items: Zotero.Item[] = [], mode: RefreshViewMode = "full") {
-  const ids = getItemIDs(items);
-  if (mode === "soft" && ids.length > 0) {
-    const itemsView = Zotero.getActiveZoteroPane()?.itemsView as any;
-    callViewMethod(itemsView, "forceUpdate");
-    callViewMethod(itemsView, "invalidate");
-    callViewMethod(itemsView?.tree, "invalidate");
-    callViewMethod(itemsView?._tree, "invalidate");
-    triggerItemTreeRefresh(ids);
+  if (mode === "soft") {
+    softRefreshItemsView(items);
     return;
   }
 
-  const itemsView = Zotero.getActiveZoteroPane()?.itemsView;
-  if (!callViewMethod(itemsView, "refreshAndMaintainSelection")) {
-    triggerItemTreeRefresh([]);
-  }
+  refreshItemsViewAndMaintainSelection(items);
+}
+
+function maybeRefreshActiveList(job: ActiveRefreshJob, item: Zotero.Item) {
+  const now = Date.now();
+  if (now - job.lastViewRefreshAt < 750) return;
+  job.lastViewRefreshAt = now;
+  refreshItemsView([item], "soft");
 }
 
 function alertUser(win: Window, message: string) {
@@ -303,12 +323,19 @@ function updateProgressWindow(
 }
 
 function formatErrorMessage(error: unknown) {
-  const raw =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "请查看 Zotero 错误日志";
+  let raw = "";
+  if (error instanceof Error) {
+    raw = error.message || error.name;
+  } else if (typeof error === "string") {
+    raw = error;
+  } else if (error && typeof error === "object") {
+    const candidate = error as { message?: unknown; name?: unknown; result?: unknown };
+    raw = [candidate.message, candidate.name, candidate.result]
+      .filter((value) => value !== undefined && value !== null && String(value))
+      .map((value) => String(value))
+      .join("：");
+  }
+  if (!raw || raw === "[object Object]") raw = "请查看 Zotero 错误日志";
   return truncate(raw, 90);
 }
 
@@ -341,6 +368,11 @@ async function refreshItemsWithProgress(
     alertUser(win, text.noSelection);
     return;
   }
+  if (isInitializationRunning()) {
+    alertUser(win, text.initializationRunning);
+    return;
+  }
+  cancelBackgroundWarmup();
   if (activeRefreshJob) {
     alertUser(win, text.refreshAlreadyRunning);
     return;
@@ -349,6 +381,7 @@ async function refreshItemsWithProgress(
   const job: ActiveRefreshJob = {
     id: nextRefreshJobID++,
     cancelRequested: false,
+    lastViewRefreshAt: Date.now(),
   };
   const progressWindow = createProgressWindow(win, items.length);
   job.progressWindow = progressWindow;
@@ -446,6 +479,8 @@ async function refreshItemsWithProgress(
           });
         }
 
+        maybeRefreshActiveList(job, item);
+
         if (done % REFRESH_YIELD_EVERY === 0) {
           await delay(win, 0);
         }
@@ -525,6 +560,11 @@ async function refreshCASItemsWithProgress(
     alertUser(win, text.noSelection);
     return;
   }
+  if (isInitializationRunning()) {
+    alertUser(win, casText.initializationRunning);
+    return;
+  }
+  cancelBackgroundWarmup();
   if (!hasBundledCASSnapshot()) {
     alertUser(win, casText.noSnapshot);
     return;
@@ -537,6 +577,7 @@ async function refreshCASItemsWithProgress(
   const job: ActiveRefreshJob = {
     id: nextRefreshJobID++,
     cancelRequested: false,
+    lastViewRefreshAt: Date.now(),
   };
   const progressWindow = createCASProgressWindow(win, items.length);
   job.progressWindow = progressWindow;
@@ -634,6 +675,8 @@ async function refreshCASItemsWithProgress(
           });
         }
 
+        maybeRefreshActiveList(job, item);
+
         if (done % REFRESH_YIELD_EVERY === 0) {
           await delay(win, 0);
         }
@@ -701,12 +744,49 @@ function cancelActiveCASRefresh(win: Window) {
   });
 }
 
+function openSettingsFromMenu(win: Window) {
+  if (activeRefreshJob || activeCASRefreshJob) {
+    alertUser(win, "当前有批量刷新任务正在运行，请先完成或取消刷新。 ");
+    return;
+  }
+  if (!openPreferencesPane()) {
+    alertUser(win, "无法打开 CCF/CAS 设置，请查看 Zotero 错误日志。");
+  }
+}
+
 function setMenuItemDisabled(item: Element, disabled: boolean) {
   if (disabled) {
     item.setAttribute("disabled", "true");
   } else {
     item.removeAttribute("disabled");
   }
+}
+
+function appendMenuItem(
+  doc: Document,
+  popup: Element,
+  label: string,
+  onCommand: () => void,
+) {
+  const item = doc.createXULElement("menuitem");
+  item.setAttribute("label", label);
+  item.addEventListener("command", onCommand);
+  popup.appendChild(item);
+  return item;
+}
+
+function appendMenuSubmenu(doc: Document, popup: Element, label: string) {
+  const menu = doc.createXULElement("menu");
+  menu.setAttribute("label", label);
+  const submenuPopup = doc.createXULElement("menupopup");
+  menu.appendChild(submenuPopup);
+  popup.appendChild(menu);
+  return submenuPopup;
+}
+
+function applyPluginMenuIcon(menu: Element) {
+  menu.setAttribute("class", "menu-iconic");
+  menu.setAttribute("image", PLUGIN_MENU_ICON);
 }
 
 async function refreshSelectedItems(win: Window) {
@@ -763,19 +843,20 @@ function showSelectedDiagnostics(win: Window) {
   alertUser(win, formatItemDiagnostics(item));
 }
 
-function showSelectedCASDiagnostics(win: Window) {
+async function showSelectedCASDiagnostics(win: Window) {
   const item = getSelectedRegularItems()[0];
   if (!item) {
     alertUser(win, text.noSelection);
     return;
   }
 
+  await ensureCASCatalog();
   alertUser(win, formatCASItemDiagnostics(item));
 }
 
 function setManualVenue(win: Window, items: Zotero.Item[], venue: CCFVenue) {
   saveManualMatches(items, venueToManualResult(venue));
-  refreshItemsView();
+  refreshItemsView(items, "soft");
   alertUser(win, text.manualDone(items.length, venue));
 }
 
@@ -801,7 +882,7 @@ function setManualCASJournal(
     casJournalToManualResult(journal),
     getCASCatalogVersion(),
   );
-  refreshItemsView();
+  refreshItemsView(items, "soft");
   alertUser(win, casText.manualDone(items.length, journal));
 }
 
@@ -847,7 +928,7 @@ function markSelectedCASNone(win: Window) {
     })),
     getCASCatalogVersion(),
   );
-  refreshItemsView();
+  refreshItemsView(items, "soft");
   alertUser(win, casText.markedNoneDone(items.length));
 }
 
@@ -895,9 +976,10 @@ function appendBrowseMenu(
   doc: Document,
   win: _ZoteroTypes.MainWindow,
   popup: Element,
+  label = text.browse,
 ) {
   const browse = doc.createXULElement("menu");
-  browse.setAttribute("label", text.browse);
+  browse.setAttribute("label", label);
   const browsePopup = doc.createXULElement("menupopup");
   browse.appendChild(browsePopup);
 
@@ -961,39 +1043,127 @@ function updateCASRefreshMenuState(cancelItem: Element, refreshItems: Element[])
   }
 }
 
-function appendCASMenuSection(
+function appendTaskMenuSection(
   doc: Document,
   win: _ZoteroTypes.MainWindow,
   popup: Element,
 ) {
-  popup.appendChild(doc.createXULElement("menuseparator"));
+  const taskPopup = appendMenuSubmenu(doc, popup, text.taskGroup);
+  const cancelWarmup = appendMenuItem(doc, taskPopup, text.cancelWarmup, () => {
+    cancelBackgroundWarmup();
+  });
+  appendMenuItem(doc, taskPopup, text.initialization, () =>
+    openSettingsFromMenu(win),
+  );
+  const cancelInitializationItem = appendMenuItem(
+    doc,
+    taskPopup,
+    text.cancelInitialization,
+    () => {
+      cancelInitialization();
+    },
+  );
+  taskPopup.addEventListener("popupshowing", () => {
+    setMenuItemDisabled(cancelWarmup, !isBackgroundWarmupRunning());
+    setMenuItemDisabled(cancelInitializationItem, !isInitializationRunning());
+  });
+}
 
-  const refresh = doc.createXULElement("menuitem");
-  refresh.setAttribute("label", casText.refresh);
-  refresh.addEventListener("command", () => void refreshSelectedCASItems(win));
-  popup.appendChild(refresh);
+function appendCCFMenuSection(
+  doc: Document,
+  win: _ZoteroTypes.MainWindow,
+  popup: Element,
+) {
+  const ccfPopup = appendMenuSubmenu(doc, popup, text.ccfGroup);
+  const refresh = appendMenuItem(doc, ccfPopup, ccfMenuLabels.refresh, () =>
+    void refreshSelectedItems(win),
+  );
+  const refreshUnknownNone = appendMenuItem(
+    doc,
+    ccfPopup,
+    ccfMenuLabels.refreshUnknownNone,
+    () => void refreshSelectedUnknownNoneItems(win),
+  );
+  const clearAndRefresh = appendMenuItem(
+    doc,
+    ccfPopup,
+    ccfMenuLabels.clearAndRefresh,
+    () => void clearSelectedCacheAndRefresh(win),
+  );
+  const cancelRefresh = appendMenuItem(
+    doc,
+    ccfPopup,
+    ccfMenuLabels.cancelRefresh,
+    () => cancelActiveRefresh(win),
+  );
+  ccfPopup.addEventListener("popupshowing", () =>
+    updateRefreshMenuState(cancelRefresh, [
+      refresh,
+      refreshUnknownNone,
+      clearAndRefresh,
+    ]),
+  );
 
-  const refreshUnknownNone = doc.createXULElement("menuitem");
-  refreshUnknownNone.setAttribute("label", casText.refreshUnknownNone);
-  refreshUnknownNone.addEventListener(
-    "command",
+  ccfPopup.appendChild(doc.createXULElement("menuseparator"));
+  appendMenuItem(doc, ccfPopup, ccfMenuLabels.diagnostics, () =>
+    showSelectedDiagnostics(win),
+  );
+  appendMenuItem(doc, ccfPopup, ccfMenuLabels.manual, () =>
+    void selectManualVenue(win),
+  );
+  appendBrowseMenu(doc, win, ccfPopup, ccfMenuLabels.browse);
+
+  ccfPopup.appendChild(doc.createXULElement("menuseparator"));
+  appendMenuItem(doc, ccfPopup, ccfMenuLabels.ignore, () => {
+    const items = getSelectedRegularItems();
+    if (items.length === 0) {
+      alertUser(win, text.noSelection);
+      return;
+    }
+    ignoreItems(items);
+    refreshItemsView(items, "soft");
+    alertUser(win, text.ignoredDone(items.length));
+  });
+  appendMenuItem(doc, ccfPopup, ccfMenuLabels.restore, () => {
+    const items = getSelectedRegularItems();
+    if (items.length === 0) {
+      alertUser(win, text.noSelection);
+      return;
+    }
+    clearItemStates(items);
+    refreshItemsView(items, "soft");
+    alertUser(win, text.restoredDone(items.length));
+  });
+}
+
+function appendCASRankingMenuSection(
+  doc: Document,
+  win: _ZoteroTypes.MainWindow,
+  popup: Element,
+) {
+  const casPopup = appendMenuSubmenu(doc, popup, text.casGroup);
+  const refresh = appendMenuItem(doc, casPopup, casMenuLabels.refresh, () =>
+    void refreshSelectedCASItems(win),
+  );
+  const refreshUnknownNone = appendMenuItem(
+    doc,
+    casPopup,
+    casMenuLabels.refreshUnknownNone,
     () => void refreshSelectedCASUnknownNoneItems(win),
   );
-  popup.appendChild(refreshUnknownNone);
-
-  const clearAndRefresh = doc.createXULElement("menuitem");
-  clearAndRefresh.setAttribute("label", casText.clearAndRefresh);
-  clearAndRefresh.addEventListener(
-    "command",
+  const clearAndRefresh = appendMenuItem(
+    doc,
+    casPopup,
+    casMenuLabels.clearAndRefresh,
     () => void clearSelectedCASCacheAndRefresh(win),
   );
-  popup.appendChild(clearAndRefresh);
-
-  const cancelRefresh = doc.createXULElement("menuitem");
-  cancelRefresh.setAttribute("label", casText.cancelRefresh);
-  cancelRefresh.addEventListener("command", () => cancelActiveCASRefresh(win));
-  popup.appendChild(cancelRefresh);
-  popup.addEventListener("popupshowing", () =>
+  const cancelRefresh = appendMenuItem(
+    doc,
+    casPopup,
+    casMenuLabels.cancelRefresh,
+    () => cancelActiveCASRefresh(win),
+  );
+  casPopup.addEventListener("popupshowing", () =>
     updateCASRefreshMenuState(cancelRefresh, [
       refresh,
       refreshUnknownNone,
@@ -1001,48 +1171,48 @@ function appendCASMenuSection(
     ]),
   );
 
-  const diagnostics = doc.createXULElement("menuitem");
-  diagnostics.setAttribute("label", casText.diagnostics);
-  diagnostics.addEventListener("command", () => showSelectedCASDiagnostics(win));
-  popup.appendChild(diagnostics);
+  casPopup.appendChild(doc.createXULElement("menuseparator"));
+  appendMenuItem(doc, casPopup, casMenuLabels.diagnostics, () =>
+    void showSelectedCASDiagnostics(win),
+  );
+  appendMenuItem(doc, casPopup, casMenuLabels.manual, () =>
+    void selectManualCASJournal(win),
+  );
+  appendMenuItem(doc, casPopup, casMenuLabels.markNone, () =>
+    markSelectedCASNone(win),
+  );
 
-  const manual = doc.createXULElement("menuitem");
-  manual.setAttribute("label", casText.manual);
-  manual.addEventListener("command", () => void selectManualCASJournal(win));
-  popup.appendChild(manual);
-
-  const markNone = doc.createXULElement("menuitem");
-  markNone.setAttribute("label", casText.markNone);
-  markNone.addEventListener("command", () => markSelectedCASNone(win));
-  popup.appendChild(markNone);
-
-  const ignore = doc.createXULElement("menuitem");
-  ignore.setAttribute("label", casText.ignore);
-  ignore.addEventListener("command", () => {
+  casPopup.appendChild(doc.createXULElement("menuseparator"));
+  appendMenuItem(doc, casPopup, casMenuLabels.ignore, () => {
     const items = getSelectedRegularItems();
     if (items.length === 0) {
       alertUser(win, text.noSelection);
       return;
     }
     ignoreCASItems(items);
-    refreshItemsView();
+    refreshItemsView(items, "soft");
     alertUser(win, casText.ignoredDone(items.length));
   });
-  popup.appendChild(ignore);
-
-  const restore = doc.createXULElement("menuitem");
-  restore.setAttribute("label", casText.restore);
-  restore.addEventListener("command", () => {
+  appendMenuItem(doc, casPopup, casMenuLabels.restore, () => {
     const items = getSelectedRegularItems();
     if (items.length === 0) {
       alertUser(win, text.noSelection);
       return;
     }
     clearCASItemStates(items);
-    refreshItemsView();
+    refreshItemsView(items, "soft");
     alertUser(win, casText.restoredDone(items.length));
   });
-  popup.appendChild(restore);
+}
+
+function appendPluginMenuSections(
+  doc: Document,
+  win: _ZoteroTypes.MainWindow,
+  popup: Element,
+) {
+  appendTaskMenuSection(doc, win, popup);
+  appendCCFMenuSection(doc, win, popup);
+  appendCASRankingMenuSection(doc, win, popup);
 }
 
 export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
@@ -1053,87 +1223,11 @@ export function registerRightClickMenu(win: _ZoteroTypes.MainWindow) {
   const root = doc.createXULElement("menu");
   root.setAttribute("id", "ccf-for-zotero-menu");
   root.setAttribute("label", text.root);
+  applyPluginMenuIcon(root);
 
   const popup = doc.createXULElement("menupopup");
   root.appendChild(popup);
-
-  const refresh = doc.createXULElement("menuitem");
-  refresh.setAttribute("label", text.refresh);
-  refresh.addEventListener("command", () => void refreshSelectedItems(win));
-  popup.appendChild(refresh);
-
-  const refreshUnknownNone = doc.createXULElement("menuitem");
-  refreshUnknownNone.setAttribute("label", text.refreshUnknownNone);
-  refreshUnknownNone.addEventListener(
-    "command",
-    () => void refreshSelectedUnknownNoneItems(win),
-  );
-  popup.appendChild(refreshUnknownNone);
-
-  const clearAndRefresh = doc.createXULElement("menuitem");
-  clearAndRefresh.setAttribute("label", text.clearAndRefresh);
-  clearAndRefresh.addEventListener(
-    "command",
-    () => void clearSelectedCacheAndRefresh(win),
-  );
-  popup.appendChild(clearAndRefresh);
-
-  const cancelRefresh = doc.createXULElement("menuitem");
-  cancelRefresh.setAttribute("label", text.cancelRefresh);
-  cancelRefresh.addEventListener("command", () => cancelActiveRefresh(win));
-  popup.appendChild(cancelRefresh);
-  popup.addEventListener("popupshowing", () =>
-    updateRefreshMenuState(cancelRefresh, [
-      refresh,
-      refreshUnknownNone,
-      clearAndRefresh,
-    ]),
-  );
-
-  const diagnostics = doc.createXULElement("menuitem");
-  diagnostics.setAttribute("label", text.diagnostics);
-  diagnostics.addEventListener("command", () => showSelectedDiagnostics(win));
-  popup.appendChild(diagnostics);
-
-  popup.appendChild(doc.createXULElement("menuseparator"));
-
-  const manual = doc.createXULElement("menuitem");
-  manual.setAttribute("label", text.manual);
-  manual.addEventListener("command", () => void selectManualVenue(win));
-  popup.appendChild(manual);
-
-  appendBrowseMenu(doc, win, popup);
-  popup.appendChild(doc.createXULElement("menuseparator"));
-
-  const ignore = doc.createXULElement("menuitem");
-  ignore.setAttribute("label", text.ignore);
-  ignore.addEventListener("command", () => {
-    const items = getSelectedRegularItems();
-    if (items.length === 0) {
-      alertUser(win, text.noSelection);
-      return;
-    }
-    ignoreItems(items);
-    refreshItemsView();
-    alertUser(win, text.ignoredDone(items.length));
-  });
-  popup.appendChild(ignore);
-
-  const restore = doc.createXULElement("menuitem");
-  restore.setAttribute("label", text.restore);
-  restore.addEventListener("command", () => {
-    const items = getSelectedRegularItems();
-    if (items.length === 0) {
-      alertUser(win, text.noSelection);
-      return;
-    }
-    clearItemStates(items);
-    refreshItemsView();
-    alertUser(win, text.restoredDone(items.length));
-  });
-  popup.appendChild(restore);
-
-  appendCASMenuSection(doc, win, popup);
+  appendPluginMenuSections(doc, win, popup);
 
   menu.appendChild(root);
 }
@@ -1153,58 +1247,11 @@ export function registerToolsMenu(win: _ZoteroTypes.MainWindow) {
   const root = doc.createXULElement("menu");
   root.setAttribute("id", "ccf-for-zotero-tools-menu");
   root.setAttribute("label", text.root);
+  applyPluginMenuIcon(root);
 
   const popup = doc.createXULElement("menupopup");
   root.appendChild(popup);
-
-  const refresh = doc.createXULElement("menuitem");
-  refresh.setAttribute("label", text.refresh);
-  refresh.addEventListener("command", () => void refreshSelectedItems(win));
-  popup.appendChild(refresh);
-
-  const refreshUnknownNone = doc.createXULElement("menuitem");
-  refreshUnknownNone.setAttribute("label", text.refreshUnknownNone);
-  refreshUnknownNone.addEventListener(
-    "command",
-    () => void refreshSelectedUnknownNoneItems(win),
-  );
-  popup.appendChild(refreshUnknownNone);
-
-  popup.appendChild(doc.createXULElement("menuseparator"));
-
-  const cancelRefresh = doc.createXULElement("menuitem");
-  cancelRefresh.setAttribute("label", text.cancelRefresh);
-  cancelRefresh.addEventListener("command", () => cancelActiveRefresh(win));
-  popup.appendChild(cancelRefresh);
-  popup.addEventListener("popupshowing", () =>
-    updateRefreshMenuState(cancelRefresh, [refresh, refreshUnknownNone]),
-  );
-
-  popup.appendChild(doc.createXULElement("menuseparator"));
-
-  const refreshCAS = doc.createXULElement("menuitem");
-  refreshCAS.setAttribute("label", casText.refresh);
-  refreshCAS.addEventListener("command", () => void refreshSelectedCASItems(win));
-  popup.appendChild(refreshCAS);
-
-  const refreshCASUnknownNone = doc.createXULElement("menuitem");
-  refreshCASUnknownNone.setAttribute("label", casText.refreshUnknownNone);
-  refreshCASUnknownNone.addEventListener(
-    "command",
-    () => void refreshSelectedCASUnknownNoneItems(win),
-  );
-  popup.appendChild(refreshCASUnknownNone);
-
-  const cancelCASRefresh = doc.createXULElement("menuitem");
-  cancelCASRefresh.setAttribute("label", casText.cancelRefresh);
-  cancelCASRefresh.addEventListener("command", () => cancelActiveCASRefresh(win));
-  popup.appendChild(cancelCASRefresh);
-  popup.addEventListener("popupshowing", () =>
-    updateCASRefreshMenuState(cancelCASRefresh, [
-      refreshCAS,
-      refreshCASUnknownNone,
-    ]),
-  );
+  appendPluginMenuSections(doc, win, popup);
 
   toolsPopup.appendChild(root);
 }

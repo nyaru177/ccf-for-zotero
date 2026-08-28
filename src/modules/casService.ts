@@ -3,6 +3,7 @@ import {
   getCASCatalogVersion,
   getCASIndex,
   hasBundledCASSnapshot,
+  ensureCASCatalog,
 } from "./casCatalog";
 import { getCASMatcherVersion, matchCASItem } from "./casMatcher";
 import { CASItemState, CASMatchResult } from "./casTypes";
@@ -16,6 +17,8 @@ import { getJournalInputFingerprint } from "./journalIdentity";
 
 export interface GetCASDisplayStateOptions {
   computeIfMissing?: boolean;
+  validateInputFingerprint?: boolean;
+  includeInputFingerprint?: boolean;
 }
 
 export interface RefreshCASItemsOptions {
@@ -100,39 +103,66 @@ export function resolveCASItem(item: Zotero.Item): CASMatchResult {
 function toCASItemState(
   item: Zotero.Item,
   result: CASMatchResult,
+  options: { includeInputFingerprint?: boolean } = {},
 ): CASItemState {
-  return {
+  const state: CASItemState = {
     ...result,
     itemKey: getCASItemKey(item),
     catalogVersion: getCASCatalogVersion(),
     matcherVersion: getCASMatcherVersion(),
-    inputFingerprint: getJournalInputFingerprint(item),
     updatedAt: new Date().toISOString(),
   };
+  if (options.includeInputFingerprint !== false) {
+    state.inputFingerprint = getJournalInputFingerprint(item);
+  }
+  return state;
 }
 
 export function getCASDisplayState(
   item: Zotero.Item,
   options: GetCASDisplayStateOptions = {},
 ): CASItemState {
-  const stored = getStoredCASState(item, getCASCatalogVersion());
+  const stored = getStoredCASState(item, getCASCatalogVersion(), {
+    validateInputFingerprint: options.validateInputFingerprint,
+  });
   if (stored) {
     return stored;
   }
 
   if (!journalItemTypes.has(item.itemType || "")) {
-    return toCASItemState(item, makeNotApplicableResult());
+    return toCASItemState(item, makeNotApplicableResult(), options);
   }
 
   if (!hasBundledCASSnapshot()) {
-    return toCASItemState(item, makeDataMissingResult());
+    return toCASItemState(item, makeDataMissingResult(), options);
   }
 
   if (options.computeIfMissing === false) {
-    return toCASItemState(item, makeUnknownWithoutComputeResult());
+    return toCASItemState(item, makeUnknownWithoutComputeResult(), options);
   }
 
-  return toCASItemState(item, resolveCASItem(item));
+  return toCASItemState(item, resolveCASItem(item), options);
+}
+
+/**
+ * Keep CAS column rendering independent from the full journal matcher and
+ * its large index. The background warm-up and explicit refresh paths do the
+ * actual matching.
+ */
+export function getCASColumnDisplayState(item: Zotero.Item): CASItemState {
+  return getCASDisplayState(item, {
+    computeIfMissing: false,
+    validateInputFingerprint: false,
+    includeInputFingerprint: false,
+  });
+}
+
+export function hasCachedCASState(item: Zotero.Item): boolean {
+  return Boolean(
+    getStoredCASState(item, getCASCatalogVersion(), {
+      validateInputFingerprint: false,
+    }),
+  );
 }
 
 export function refreshCASItem(item: Zotero.Item) {
@@ -146,6 +176,7 @@ export async function filterCASItemsByDisplayStatus(
   statuses: Array<CASItemState["status"]>,
   options: FilterCASItemsByDisplayStatusOptions = {},
 ): Promise<FilterCASItemsByDisplayStatusResult> {
+  await ensureCASCatalog();
   const statusSet = new Set(statuses);
   const matchedItems: Zotero.Item[] = [];
   const total = items.length;
@@ -155,7 +186,11 @@ export async function filterCASItemsByDisplayStatus(
     if (options.shouldCancel?.()) break;
 
     const item = items[index];
-    const state = getCASDisplayState(item);
+    const state = getCASDisplayState(item, {
+      computeIfMissing: false,
+      validateInputFingerprint: true,
+      includeInputFingerprint: false,
+    });
     processed = index + 1;
     if (statusSet.has(state.status)) {
       matchedItems.push(item);
@@ -176,6 +211,7 @@ export async function refreshCASItems(
   items: Zotero.Item[],
   options: RefreshCASItemsOptions = {},
 ): Promise<RefreshCASItemsResult> {
+  await ensureCASCatalog();
   const entries: Array<{ item: Zotero.Item; result: CASMatchResult }> = [];
   let pendingSave: Array<{ item: Zotero.Item; result: CASMatchResult }> = [];
   const total = items.length;

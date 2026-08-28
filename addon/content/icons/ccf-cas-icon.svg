@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <defs>
+    <filter id="shadow" x="8" y="5" width="80" height="88" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#102A43" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M21 11.5A5.5 5.5 0 0 1 26.5 6h31L75 23.5V78a5.5 5.5 0 0 1-5.5 5.5h-48A5.5 5.5 0 0 1 16 78V17a5.5 5.5 0 0 1 5-5.5Z" fill="#F8FAFC" stroke="#16324F" stroke-width="3"/>
+    <path d="M57 7v14a4 4 0 0 0 4 4h13" fill="#DCE6F0" stroke="#16324F" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M28 34h31M28 45h35M28 56h25" stroke="#7B8794" stroke-width="4" stroke-linecap="round"/>
+    <path d="M28 34h15" stroke="#D64545" stroke-width="4" stroke-linecap="round"/>
+    <path d="M28 45h21" stroke="#E5A72B" stroke-width="4" stroke-linecap="round"/>
+    <path d="M28 56h13" stroke="#169C9C" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <circle cx="34" cy="72" r="16" fill="#D64545" stroke="#FFF" stroke-width="3"/>
+  <path d="M27 67h14M27 72h14M27 77h9" stroke="#FFF" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="62" cy="72" r="16" fill="#169C9C" stroke="#FFF" stroke-width="3"/>
+  <path d="m54 72 5 5 11-12" stroke="#FFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

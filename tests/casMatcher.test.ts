@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ensureCASCatalog,
   getCASCatalog,
   getCASCatalogStatusText,
   hasBundledCASSnapshot,
@@ -16,7 +17,11 @@ import {
   searchCASJournalOptions,
 } from "../src/modules/casManualSelector";
 import { buildCASIndex, matchCASItem } from "../src/modules/casMatcher";
-import { getCASDisplayState } from "../src/modules/casService";
+import {
+  getCASColumnDisplayState,
+  getCASDisplayState,
+} from "../src/modules/casService";
+import "../src/modules/casCatalogData";
 import { CASCatalog, CASItemState } from "../src/modules/casTypes";
 import {
   clearCASStorageMemoryCache,
@@ -319,6 +324,43 @@ describe("CAS journal matcher", () => {
     assert.match(pendingData.sortKey, /^950\|/);
   });
 
+  it("keeps uncached CAS column reads free of journal-field scanning", () => {
+    let fieldReads = 0;
+    let setCalls = 0;
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return "";
+        },
+        set() {
+          setCalls += 1;
+        },
+      },
+    };
+
+    try {
+      clearCASStorageMemoryCache();
+      const item = {
+        libraryID: 1,
+        id: 1303,
+        itemType: "journalArticle",
+        getField() {
+          fieldReads += 1;
+          return "Information Processing & Management";
+        },
+      } as unknown as Zotero.Item;
+
+      const state = getCASColumnDisplayState(item);
+      assert.equal(state.status, "unknown");
+      assert.equal(fieldReads, 0);
+      assert.equal(setCalls, 0);
+    } finally {
+      clearCASStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
   it("searches CAS manual options by ISSN, title, abbreviation, category, and filters", () => {
     assert.equal(
       searchCASJournalOptions("2045-2322", {}, 5, fixtureCatalog)[0]?.journal.key,
@@ -370,7 +412,7 @@ describe("CAS journal matcher", () => {
     assert.equal(result.matchMethod, "用户手动选择 CAS 期刊");
   });
 
-  it("reports the bundled CAS snapshot when production data is present", () => {
+  it("reports the bundled CAS snapshot when production data is present", async () => {
     const originalZotero = (globalThis as any).Zotero;
     (globalThis as any).Zotero = {
       Prefs: {
@@ -382,6 +424,7 @@ describe("CAS journal matcher", () => {
 
     try {
       clearCASStorageMemoryCache();
+      await ensureCASCatalog();
       const catalog = getCASCatalog();
       assert.equal(hasBundledCASSnapshot(), true);
       assert.equal(catalog.dataStatus, "third-party-snapshot");

@@ -5,6 +5,10 @@
   "description": "__description__",
   "homepage_url": "__homepage__",
   "author": "__author__",
+  "icons": {
+    "48": "content/icons/ccf-cas-48.png",
+    "96": "content/icons/ccf-cas-96.png"
+  },
   "applications": {
     "zotero": {
       "id": "__addonID__",

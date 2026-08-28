@@ -1,0 +1,65 @@
+<groupbox
+  id="ccf-init-root"
+  class="ccf-preferences"
+  onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })"
+>
+  <html:p class="ccf-intro">
+    使用插件内置的离线数据识别 CCF 分级和 CAS 中科院分区。结果保存在插件私有缓存中，不修改 Zotero 条目字段。
+  </html:p>
+
+  <html:fieldset class="ccf-section">
+    <html:legend>处理范围</html:legend>
+    <html:label class="ccf-field" for="ccf-init-scope">
+      <html:span class="ccf-field-label">选择需要处理的文献范围</html:span>
+      <html:select id="ccf-init-scope" class="ccf-select">
+        <html:option value="current-collection" selected="selected">主窗口当前集合</html:option>
+        <html:option value="user-library">我的文库全部文献</html:option>
+        <html:option id="ccf-init-selected-items-option" value="selected-items" disabled="disabled">主窗口当前选中的文献（0）</html:option>
+      </html:select>
+    </html:label>
+  </html:fieldset>
+
+  <html:fieldset class="ccf-section">
+    <html:legend>识别项目</html:legend>
+    <html:label class="ccf-check-row" for="ccf-init-ccf">
+      <html:input id="ccf-init-ccf" class="ccf-check" type="checkbox" checked="checked" />
+      <html:span>CCF 分级</html:span>
+    </html:label>
+    <html:label class="ccf-check-row" for="ccf-init-cas">
+      <html:input id="ccf-init-cas" class="ccf-check" type="checkbox" checked="checked" />
+      <html:span>CAS 中科院分区</html:span>
+    </html:label>
+  </html:fieldset>
+
+  <html:fieldset class="ccf-section">
+    <html:legend>处理方式</html:legend>
+    <html:label class="ccf-field" for="ccf-init-mode">
+      <html:span class="ccf-field-label">选择缓存处理方式</html:span>
+      <html:select id="ccf-init-mode" class="ccf-select">
+        <html:option value="incremental" selected="selected">增量识别：保留已有结果</html:option>
+        <html:option value="pending-only">仅刷新待确认结果：Unknown / CCF None / CAS 未收录</html:option>
+        <html:option value="force-auto">强制重新识别自动结果：保留手动设置</html:option>
+      </html:select>
+    </html:label>
+  </html:fieldset>
+
+  <html:div class="ccf-actions">
+    <html:button id="ccf-init-start" class="ccf-button ccf-button-primary" type="button">开始初始化</html:button>
+    <html:button id="ccf-init-cancel" class="ccf-button" type="button" disabled="disabled">取消初始化</html:button>
+  </html:div>
+  <html:p id="ccf-init-validation" class="ccf-validation" aria-live="polite"></html:p>
+
+  <html:section class="ccf-progress-section" aria-labelledby="ccf-init-status">
+    <html:div class="ccf-status-line">
+      <html:strong id="ccf-init-status">尚未运行初始化</html:strong>
+      <html:span id="ccf-init-overall-value" class="ccf-progress-value">准备中</html:span>
+    </html:div>
+    <html:progress id="ccf-init-overall-progress" class="ccf-progress" max="1"></html:progress>
+    <html:div class="ccf-stage-line">
+      <html:span id="ccf-init-stage">等待开始</html:span>
+      <html:span id="ccf-init-detail" class="ccf-detail"></html:span>
+    </html:div>
+    <html:progress id="ccf-init-stage-progress" class="ccf-progress ccf-progress-secondary" max="1"></html:progress>
+    <html:p id="ccf-init-summary" class="ccf-summary" aria-live="polite">CCF：匹配 0；CAS：匹配 0</html:p>
+  </html:section>
+</groupbox>
