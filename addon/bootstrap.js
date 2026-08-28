@@ -11,7 +11,7 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
     ["content", "__addonRef__", rootURI + "content/"],
   ]);
 
-  const ctx = { rootURI };
+  const ctx = { rootURI, Services };
   ctx._globalThis = ctx;
 
   Services.scriptloader.loadSubScript(
@@ -43,4 +43,3 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
 }
 
 async function uninstall(data, reason) {}
-

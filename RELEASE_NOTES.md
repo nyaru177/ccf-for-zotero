@@ -1,5 +1,116 @@
 # Release Notes
 
+## v0.2.5
+
+这是一次首次使用流程和批量任务生命周期优化版本，继续保持 CCF/CAS 离线识别与插件私有缓存边界。
+
+### 主要变更
+
+- 新增 Zotero 10 `CCF/CAS 分级助手` Preference Pane：用户从 `编辑` -> `设置` 进入，不再自动弹出不稳定的独立初始化窗口。
+- 设置页支持当前集合、我的文库全部文献和当前选中的文献三种范围，可只识别 CCF、只识别 CAS 或同时识别，也支持增量识别和强制重新识别自动结果。
+- 设置页显示总体/阶段进度、当前条目、CCF/CAS 结果统计和取消按钮；取消后已保存批次保留，不覆盖手动设置和忽略状态。
+- Tools/工具和条目右键菜单新增 `打开 CCF/CAS 设置`、`取消初始化`；关闭设置页只停止页面轮询，不会取消后台任务。
+- 后台准备记录当前 library/collection/view 身份；切换 collection 后旧任务停止，不再对新列表执行旧任务的重绘。
+- CCF/CAS 批量处理期间按约 750ms 节流行级列表重绘；完成时只尝试重绘已处理条目的可见行，不再做整表刷新或全量 item refresh。
+- `只刷新 Unknown / CCF None` 和 `CAS：只刷新 Unknown / CAS None` 的筛选阶段改为只读有效缓存，缺缓存条目按 `Unknown` 进入刷新队列，避免筛选时同步跑完整 matcher。
+- 设置页恢复“仅刷新待确认结果”模式；它处理无缓存、自动 `Unknown`、CCF `None` 和 CAS 未收录结果，但跳过手动结果、忽略状态和 CAS `N/A`。
+- 移除设置页内部重复的 `CCF/CAS 分级助手` 标题，并将设置样式限制在插件面板根节点，避免影响其他插件的设置页。
+- 新增 CCF/CAS 双徽章插件图标，并在 manifest 注册 48px 和 96px 资源。
+- 修复工具菜单和条目右键菜单的 `CCF/CAS 分级助手` 入口缺少插件图标的问题。
+- 修复初始化进度区长详情文本挤压阶段名称、导致中文文字逐字竖排的问题；阶段名称现在保持单行，详情过长时使用省略号。
+- 普通刷新、后台准备和初始化任务互斥，避免多个任务同时写缓存或争抢进度窗口。
+
+### 校验
+
+- `npm test`：127 tests passed。
+- `npm run check`：通过。
+- `npm run audit:cas-catalog`：通过；仍会输出第三方 CAS 快照中的重复规范化标题 warning。
+- 尚未替代真实 Zotero 10 副本库的人工验收；建议重点观察设置页控件、5000 条主库、切换 collection、取消和列表选择位置。
+
+## v0.2.4
+
+这是一个批量刷新兼容性热修版本。
+
+- 修复批量 CCF/CAS 刷新完成时向 Zotero 广播全量 item refresh 的问题，避免触发 `Publication Tags` 等其他插件对数千条目重复联网请求并被服务器限流。
+- CAS 刷新失败时保留并显示更具体的脚本加载或运行时错误信息。
+- bootstrap 显式向插件脚本上下文传入 `Services`，提高 CAS 独立数据脚本在 Zotero 10 中按需加载的可靠性。
+
+本版本只修复批量刷新联动问题，不会自动把结果写入 Zotero 标签字段。
+
+## v0.2.3
+
+这是一次面向大库性能和首次启动体验的优化版本，重点处理 5000+ 条目点击 CCF/CAS 表头卡顿，以及安装后首次打开主库时 Zotero 长时间无响应的问题。
+
+### 主要变更
+
+- CCF/CAS 自定义列只读取私有缓存和轻量状态，不在 `dataProvider` 或排序路径即时运行 matcher、建立 CAS 索引或计算期刊身份指纹。
+- 首次启动增加后台准备：仅收集当前视图最多 80 个普通条目，分批保存、主动让出 UI，并显示可取消的非模态进度窗口。不会自动刷新整个 5000+ 主库。
+- 后台准备完成后使用列表 invalidate/forceUpdate 更新列，减少因全局 item refresh 导致的滚动位置跳动。
+- 增加后台任务代际检查，关闭 Zotero 或取消任务后，旧异步回调不会继续刷新列表。
+- CAS 21772 本期刊快照从主脚本拆为独立经典脚本，仅在 CAS 刷新、手动搜索或诊断需要时载入，兼容 Zotero 10 的 bootstrap `loadSubScript` 机制。
+- 批量刷新不再向 Zotero 全量广播 item refresh，避免触发 `Publication Tags` 等其他插件对每条文献重复联网请求并被服务器限流。
+- CAS 加载失败时进度提示会尽量显示具体的脚本加载异常，不再统一显示为“请查看 Zotero 错误日志”。
+
+### 校验
+
+- `npm test`：90 tests passed。
+- `npm run build`：通过。
+- 构建后的主脚本约 0.5 MB，CAS 数据脚本独立约 14 MB；XPI 约 1.4 MB。
+- 本版本尚未在真实 Zotero 10 主库上完成自动化 UI 压测，安装后仍建议先在副本库观察首次打开、滚动、排序和取消行为。
+
+## v0.2.2
+
+这是一次 CCF 列显示热修，针对“诊断结果正确，但 CCF 列仍大量显示 `Unknown`”的问题。
+
+### 修复
+
+- CCF 列现在对可见条目直接即时计算显示，不再只依赖缓存；这会让诊断窗口和列表列显示保持一致。
+- 增加列级回归测试，模拟 Zotero `ItemTreeManager` 调用 `dataProvider`，确认无缓存 EMNLP 条目能直接显示 `CCF B | EMNLP`。
+
+### 校验
+
+- `npm run check` 通过。
+
+## v0.2.1
+
+这是一次显示刷新热修，针对 v0.2.0 安装后 CCF/CAS 列大量显示 `Unknown` 的问题。
+
+### 修复
+
+- 修复 CCF/CAS 刷新完成后 Zotero 列可能没有重新取值的问题：刷新现在会在 item tree 软刷新后继续触发 item refresh 通知，避免出现“弹窗显示匹配成功，但列仍是 Unknown”。
+- CAS 列在无缓存时改为即时计算显示；CAS 匹配是本地 ISSN/题名索引查表，不再要求用户先手动刷新才看到分区。
+- 增加 `Information Processing & Management` 回归测试，确认截图中的条目可识别为 `CCF B | IPM` 和 `CAS 1区`。
+
+### 校验
+
+- `npm run check` 通过。
+
+## v0.2.0
+
+这是第一个完整 CAS 中科院期刊分区版本。在现有 CCF 功能之外，本版新增独立 `CAS` 列、独立缓存、手动搜索、诊断和批量刷新，并内置 `hitfyd/ShowJCR` 的 2025 分区快照。
+
+### 主要功能
+
+- 新增 `CAS` 列，与现有 `CCF` 列独立显示、独立排序、独立 tooltip。
+- 新增 CAS 期刊识别底座：优先 ISSN/eISSN 精确匹配，其次使用期刊全称、简称和别名；会议、图书、预印本等非期刊条目显示 `N/A`。
+- 新增 `extensions.ccf-for-zotero.casState` 私有缓存，CAS 的自动结果、手动设置和忽略状态不会污染 CCF 缓存，也不会写入 Zotero 元数据。
+- 新增 CAS 右键菜单和工具菜单：刷新所选条目、只刷新 Unknown/CAS None、清除缓存并重算、取消刷新、诊断、手动搜索期刊、标记 CAS None、忽略和恢复自动匹配。
+- 内置 `CAS-2025-showjcr` 快照：`21772` 本期刊，包含大类/小类分区、Top、预警标注等字段。
+- 新增 `npm run build:cas-catalog`，支持官方/授权导出和 ShowJCR CSV 结构转换为插件运行时 JSON。
+- 新增 `npm run audit:cas-catalog` 和 `npm run audit:cas-public-release`，校验目录结构、来源哈希、分区字段和公开再分发边界。
+
+### 数据说明
+
+- CAS 快照来自 `hitfyd/ShowJCR` 的 `FQBJCR2025-UTF8.csv`，其项目说明数据来源于 `advanced.fenqubiao.com` 查询结果。
+- 原始 CSV SHA-256：`481224dca2cacc1cce49afb44c968d734c834e498e5ff054f15efb5a548789fc`。
+- 当前快照标记为 `third-party-snapshot` / `redistribution: unknown`；这不是官方授权再分发数据，主要面向个人/本地研究便利。
+
+### 校验
+
+- `npm run check` 通过。
+- `npm run audit:cas-catalog` 通过：`21772` journals，`1789` Top，`5` warned，`status=third-party-snapshot`。
+- `npm run audit:cas-public-release` 仍会拒绝第三方未知再分发授权数据；这是预期保护。
+
 ## v0.1.16
 
 这是一次稳定性和可解释性小版本，重点修复大库点击 `CCF` 表头排序可能卡死的问题，并增强缓存失效、诊断来源和手动设置说明。仍然保持 CCF-only、离线和私有缓存边界，不加入联网 fallback、引用次数或用户反馈上传。

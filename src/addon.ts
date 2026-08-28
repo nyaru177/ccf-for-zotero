@@ -1,5 +1,17 @@
 import { config } from "../package.json";
 import hooks from "./hooks";
+import {
+  cancelInitialization,
+  getInitializationProgress,
+  getInitializationState,
+  getSelectedInitializationItemCount,
+  isInitializationRunning,
+  startInitialization,
+} from "./modules/initialization";
+import {
+  openPreferencesPane,
+  InitializationPreferencesAPI,
+} from "./modules/preferences";
 import { createZToolkit } from "./utils/ztoolkit";
 
 class Addon {
@@ -12,7 +24,7 @@ class Addon {
   };
 
   public hooks: typeof hooks;
-  public api: object;
+  public api: InitializationPreferencesAPI;
 
   constructor() {
     this.data = {
@@ -23,9 +35,16 @@ class Addon {
       ztoolkit: createZToolkit(),
     };
     this.hooks = hooks;
-    this.api = {};
+    this.api = {
+      getInitializationState,
+      getInitializationProgress,
+      isInitializationRunning,
+      startInitialization,
+      cancelInitialization,
+      getSelectedInitializationItemCount,
+      openPreferences: openPreferencesPane,
+    };
   }
 }
 
 export default Addon;
-

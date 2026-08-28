@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatColumnDataForState,
+  registerCCFColumn,
   unpackColumnData,
 } from "../src/modules/column";
 import { formatItemDiagnostics } from "../src/modules/diagnostics";
@@ -19,6 +20,7 @@ import {
 import { formatNonCcfVenueText } from "../src/modules/nonCcfAliases";
 import {
   filterItemsByDisplayStatus,
+  getColumnDisplayState,
   getDisplayState,
   refreshItemsRank,
 } from "../src/modules/rankService";
@@ -791,6 +793,41 @@ describe("local CCF matcher", () => {
     }
   });
 
+  it("uses refreshed CCF cache on the cheap column path", async () => {
+    let rawStore = "";
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return rawStore;
+        },
+        set(_key: string, value: string) {
+          rawStore = value;
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      const item = makeItem(
+        { publicationTitle: "Information Processing & Management" },
+        "journalArticle",
+        113,
+      );
+      const result = await refreshItemsRank([item]);
+      assert.equal(result.entries[0]?.result.status, "matched");
+
+      clearStorageMemoryCache();
+      const state = getDisplayState(item, { computeIfMissing: false });
+      assert.equal(state.status, "matched");
+      assert.equal(state.rank, "B");
+      assert.equal(state.abbr, "IPM");
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
   it("invalidates automatic cache when item venue inputs change", () => {
     const originalItem = makeItem({}, "conferencePaper", 111);
     const updatedItem = makeItem(
@@ -897,6 +934,60 @@ describe("local CCF matcher", () => {
     assert.equal(none.sortKey < unknown.sortKey, true);
   });
 
+  it("keeps CCF column reads cheap and uses the cache after refresh", async () => {
+    let registeredColumn: any;
+    const originalZotero = (globalThis as any).Zotero;
+    (globalThis as any).Zotero = {
+      Prefs: {
+        get() {
+          return "";
+        },
+        set() {},
+      },
+      ItemTreeManager: {
+        async registerColumns(column: any) {
+          registeredColumn = column;
+        },
+      },
+    };
+
+    try {
+      clearStorageMemoryCache();
+      await registerCCFColumn();
+      const item = {
+        ...makeItem(
+          {
+            proceedingsTitle:
+              "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
+            conferenceName: "EMNLP 2025",
+            DOI: "10.18653/v1/2025.emnlp-main.1171",
+            url: "https://aclanthology.org/2025.emnlp-main.1171/",
+          },
+          "conferencePaper",
+          401,
+        ),
+        isAttachment() {
+          return false;
+        },
+        isNote() {
+          return false;
+        },
+      } as unknown as Zotero.Item;
+
+      const data = unpackColumnData(registeredColumn.dataProvider(item));
+      assert.equal(getColumnDisplayState(item).status, "unknown");
+      assert.equal(data.display, "Unknown");
+      assert.match(data.title, /未在列排序路径即时计算/);
+
+      await refreshItemsRank([item]);
+      const refreshed = unpackColumnData(registeredColumn.dataProvider(item));
+      assert.equal(refreshed.display, "CCF B | EMNLP");
+    } finally {
+      clearStorageMemoryCache();
+      (globalThis as any).Zotero = originalZotero;
+    }
+  });
+
   it("cancels batch refresh after saving completed entries", async () => {
     let cancelled = false;
     let rawStore = "";
@@ -951,7 +1042,7 @@ describe("local CCF matcher", () => {
     }
   });
 
-  it("filters Unknown and CCF None items with cancellation support", async () => {
+  it("filters cached CCF None and uncached Unknown items without computing matches", async () => {
     let cancelled = false;
     let progressCalls = 0;
     const originalZotero = (globalThis as any).Zotero;
@@ -993,7 +1084,7 @@ describe("local CCF matcher", () => {
       assert.equal(result.processed, 3);
       assert.deepEqual(
         result.items.map((item) => item.id),
-        [302, 303],
+        [301, 302, 303],
       );
       assert.equal(progressCalls, 3);
     } finally {

@@ -1,22 +1,12 @@
 import { config } from "../../package.json";
-import { formatNonCcfVenueText } from "./nonCcfAliases";
-import { getColumnDisplayState } from "./rankService";
-import { ItemRankState } from "./types";
+import { getCASColumnDisplayState } from "./casService";
+import { CASItemState, CASPlacement } from "./casTypes";
 
-const dataKey = "ccfForZoteroRank";
+const dataKey = "ccfForZoteroCAS";
 const sortDataSeparator = "\u001e";
 const cellTitleSeparator = "\u001f";
 
-const rankSortOrder: Record<string, string> = {
-  A: "010",
-  B: "020",
-  C: "030",
-  T1: "110",
-  T2: "120",
-  T3: "130",
-};
-
-function packColumnData(
+function packCASColumnData(
   sortKey: string,
   display: string,
   title = display,
@@ -26,7 +16,7 @@ function packColumnData(
   return `${sortKey}${sortDataSeparator}${cellData}`;
 }
 
-export function unpackColumnData(data: string): {
+export function unpackCASColumnData(data: string): {
   sortKey: string;
   display: string;
   title: string;
@@ -55,27 +45,60 @@ function formatTimestamp(value?: string): string | undefined {
   });
 }
 
-function getCatalogLabel(state: ItemRankState): string | undefined {
-  if (state.status !== "matched") return undefined;
-  return state.rank?.startsWith("T") ? "2025 高质量期刊" : "2026 国际目录";
+function primaryPlacement(placements?: CASPlacement[]): CASPlacement | undefined {
+  return placements?.[0];
 }
 
-function getSortKey(state: ItemRankState, display: string): string {
+function formatPlacement(placement?: CASPlacement): string | undefined {
+  if (!placement) return undefined;
+  return `${placement.category} ${placement.zone}区`;
+}
+
+function formatPlacementList(placements?: CASPlacement[]): string | undefined {
+  if (!placements?.length) return undefined;
+  return placements
+    .slice(0, 2)
+    .map((placement) => formatPlacement(placement))
+    .filter(Boolean)
+    .join("；");
+}
+
+function getDisplayName(state: CASItemState): string {
+  return (
+    state.abbreviation ||
+    state.journalTitle ||
+    state.venueText ||
+    "Journal"
+  );
+}
+
+function getSortKey(state: CASItemState, display: string): string {
   if (state.status === "ignored") return "990";
-  if (state.status === "matched" && state.rank) {
-    return `${rankSortOrder[state.rank] || "190"}|${state.abbr || display}`;
+  if (state.status === "matched") {
+    const placement = primaryPlacement(state.majorPlacements || state.minorPlacements);
+    const zone = placement?.zone || 4;
+    return `${String(zone).padStart(3, "0")}|${getDisplayName(state)}`;
   }
-  if (state.status === "none") return `700|${display}`;
-  if (state.status === "preprint") return `800|${display}`;
-  return `900|${display}`;
+  if (state.status === "not-listed") return `700|${display}`;
+  if (state.status === "unknown") return `800|${display}`;
+  if (state.status === "not-applicable") return `900|${display}`;
+  if (state.status === "data-missing") return `950|${display}`;
+  return `999|${display}`;
 }
 
-function buildTooltip(state: ItemRankState, display: string): string {
+function buildCASTooltip(state: CASItemState, display: string): string {
   if (!display) return "";
   const lines = [display];
-  const catalog = getCatalogLabel(state);
-  if (state.category || catalog) {
-    lines.push([state.category, catalog].filter(Boolean).join(" · "));
+  const major = formatPlacementList(state.majorPlacements);
+  const minor = formatPlacementList(state.minorPlacements);
+  if (major) {
+    lines.push(`大类：${major}${state.isTop ? " · Top" : ""}`);
+  }
+  if (minor) {
+    lines.push(`小类：${minor}`);
+  }
+  if (state.isWarned) {
+    lines.push("预警：是");
   }
   const source = state.matchedField
     ? `${state.matchedField}${state.matchMethod ? ` · ${state.matchMethod}` : ""}`
@@ -83,77 +106,79 @@ function buildTooltip(state: ItemRankState, display: string): string {
   if (source) lines.push(`来源：${source}`);
   const updatedAt = formatTimestamp(state.updatedAt);
   if (updatedAt) lines.push(`更新：${updatedAt}`);
-  return lines.slice(0, 4).join("\n");
+  return lines.slice(0, 5).join("\n");
 }
 
-export function formatColumnDataForState(state: ItemRankState): string {
+export function formatCASColumnDataForState(state: CASItemState): string {
   let display = "";
   let title = "";
 
   if (state.status === "ignored") {
-    return packColumnData(getSortKey(state, display), display, title);
+    return packCASColumnData(getSortKey(state, display), display, title);
   }
-  if (state.status === "preprint") {
-    display = "Preprint | arXiv";
-  } else if (state.status === "unknown") {
-    display = "Unknown";
-  } else if (state.status === "none") {
-    const originalVenue = state.venueText || "Venue";
-    const displayVenue = formatNonCcfVenueText(originalVenue);
-    display = `CCF None | ${displayVenue}`;
-    title = buildTooltip(state, `CCF None | ${originalVenue}`);
-  } else if (state.rank && state.abbr) {
-    display = `CCF ${state.rank} | ${state.abbr}`;
+
+  if (state.status === "matched") {
+    const placement = primaryPlacement(state.majorPlacements || state.minorPlacements);
+    if (placement) {
+      display = `CAS ${placement.zone}区 | ${getDisplayName(state)}`;
+    } else {
+      display = `CAS | ${getDisplayName(state)}`;
+    }
+  } else if (state.status === "not-listed") {
+    display = `CAS None | ${state.venueText || "Journal"}`;
+  } else if (state.status === "not-applicable") {
+    display = "N/A";
+  } else if (state.status === "data-missing") {
+    display = "CAS 数据未内置";
   } else {
     display = "Unknown";
   }
 
-  if (!title) title = buildTooltip(state, display);
-  return packColumnData(getSortKey(state, display), display, title);
+  title = buildCASTooltip(state, display);
+  return packCASColumnData(getSortKey(state, display), display, title);
 }
 
-function getBadgeColors(text: string) {
-  if (text.startsWith("CCF A |")) {
-    return { background: "#dff3e8", color: "#146c43", border: "#b7dfc8" };
-  }
-  if (text.startsWith("CCF B |")) {
-    return { background: "#e8eefc", color: "#2f56a6", border: "#c8d5f6" };
-  }
-  if (text.startsWith("CCF C |")) {
-    return { background: "#fff2cc", color: "#8a5a00", border: "#ead083" };
-  }
-  if (text.startsWith("CCF T1 |")) {
+function getCASBadgeColors(text: string) {
+  if (text.startsWith("CAS 1区 |")) {
     return { background: "#dcfce7", color: "#166534", border: "#bbf7d0" };
   }
-  if (text.startsWith("CCF T2 |")) {
+  if (text.startsWith("CAS 2区 |")) {
     return { background: "#e0f2fe", color: "#075985", border: "#bae6fd" };
   }
-  if (text.startsWith("CCF T3 |")) {
+  if (text.startsWith("CAS 3区 |")) {
     return { background: "#fef3c7", color: "#92400e", border: "#fde68a" };
   }
-  if (text.startsWith("Preprint |")) {
+  if (text.startsWith("CAS 4区 |")) {
+    return { background: "#f3f4f6", color: "#374151", border: "#d1d5db" };
+  }
+  if (text.startsWith("CAS None |")) {
+    return { background: "#f1e5f6", color: "#7a2c8f", border: "#e0c8e8" };
+  }
+  if (text === "N/A") {
     return { background: "#edf0f4", color: "#52616b", border: "#d4dae2" };
   }
-  if (text.startsWith("CCF None |")) {
-    return { background: "#f1e5f6", color: "#7a2c8f", border: "#e0c8e8" };
+  if (text === "CAS 数据未内置") {
+    return { background: "#fff7ed", color: "#9a3412", border: "#fed7aa" };
   }
   return { background: "#f4e8e8", color: "#9b2c2c", border: "#e8c9c9" };
 }
 
-export async function registerCCFColumn() {
+export async function registerCASColumn() {
   await Zotero.ItemTreeManager.registerColumns({
     pluginID: config.addonID,
     dataKey,
-    label: "CCF",
-    width: "130",
+    label: "CAS",
+    width: "145",
     zoteroPersist: ["width", "hidden", "sortDirection"],
     dataProvider: (item: Zotero.Item) => {
       if (!item || item.isAttachment() || item.isNote()) return "";
       try {
-        return formatColumnDataForState(getColumnDisplayState(item));
+        return formatCASColumnDataForState(
+          getCASColumnDisplayState(item),
+        );
       } catch (error) {
-        ztoolkit.log("CCF column dataProvider failed", error);
-        return formatColumnDataForState({
+        ztoolkit.log("CAS column dataProvider failed", error);
+        return formatCASColumnDataForState({
           itemKey: `${item.libraryID}:${item.id}`,
           status: "unknown",
           source: "auto",
@@ -169,7 +194,7 @@ export async function registerCCFColumn() {
       isFirstColumn: boolean,
       doc: Document,
     ) => {
-      const cellData = unpackColumnData(data);
+      const cellData = unpackCASColumnData(data);
       const cell = doc.createElement("span");
       cell.className = `cell ${column.className}`;
       cell.title = cellData.title || "";
@@ -180,7 +205,7 @@ export async function registerCCFColumn() {
 
       if (!cellData.display) return cell;
 
-      const colors = getBadgeColors(cellData.display);
+      const colors = getCASBadgeColors(cellData.display);
       const badge = doc.createElement("span");
       badge.textContent = cellData.display;
       badge.style.display = "inline-block";
@@ -203,5 +228,3 @@ export async function registerCCFColumn() {
     },
   });
 }
-
-

@@ -1,8 +1,8 @@
 {
   "name": "ccf-for-zotero",
   "type": "module",
-  "version": "0.1.16",
-  "description": "Offline CCF venue ranking badges for Zotero.",
+  "version": "0.2.5",
+  "description": "Offline CCF and CAS ranking badges for Zotero.",
   "config": {
     "addonName": "CCF for Zotero",
     "addonID": "ccf-for-zotero@nyaru177.github.io",
@@ -19,8 +19,11 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "build": "zotero-plugin build && tsc --noEmit",
-    "test": "tsx --test tests/matcher.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",
+    "build:cas-catalog": "node tools/build-cas-catalog-from-official-export.mjs",
+    "audit:cas-catalog": "node tools/audit-cas-catalog.mjs",
+    "audit:cas-public-release": "node tools/audit-cas-public-release.mjs",
     "start": "zotero-plugin serve"
   },
   "dependencies": {

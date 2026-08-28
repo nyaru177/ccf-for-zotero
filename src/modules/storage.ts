@@ -2,6 +2,7 @@ import { config } from "../../package.json";
 import { getCatalogVersion, getMatcherVersion } from "./matcher";
 import { ItemRankState, MatchResult } from "./types";
 import { getItemInputFingerprint } from "./venueResolver";
+import { readJSONPreference, writeJSONPreference } from "./preferenceStore";
 
 const STORE_KEY = `${config.prefsPrefix}.itemState`;
 const STORE_VERSION = 1;
@@ -12,24 +13,18 @@ interface StateStore {
 }
 
 let storeCache: StateStore | undefined;
+const invalidatedItemIDs = new Set<string>();
 
 function emptyStore(): StateStore {
   return { version: STORE_VERSION, items: {} };
 }
 
 function readStoreFromPrefs(): StateStore {
-  const raw = Zotero.Prefs.get(STORE_KEY, true) as string;
-  if (!raw) return emptyStore();
-  try {
-    const parsed = JSON.parse(raw) as StateStore;
-    return {
-      version: parsed.version || STORE_VERSION,
-      items: parsed.items || {},
-    };
-  } catch (error) {
-    ztoolkit?.log?.("Could not parse rank state store", error);
-    return emptyStore();
-  }
+  const parsed = readJSONPreference<Partial<StateStore>>(STORE_KEY, {});
+  return {
+    version: parsed.version || STORE_VERSION,
+    items: parsed.items || {},
+  };
 }
 
 function loadStore(): StateStore {
@@ -40,8 +35,8 @@ function loadStore(): StateStore {
 }
 
 function saveStore(store: StateStore) {
+  writeJSONPreference(STORE_KEY, store);
   storeCache = store;
-  Zotero.Prefs.set(STORE_KEY, JSON.stringify(store), true);
 }
 
 export function getItemKey(item: Zotero.Item): string {
@@ -50,16 +45,34 @@ export function getItemKey(item: Zotero.Item): string {
 
 export function clearStorageMemoryCache() {
   storeCache = undefined;
+  invalidatedItemIDs.clear();
 }
 
-export function getStoredState(item: Zotero.Item): ItemRankState | undefined {
+export interface GetStoredStateOptions {
+  validateInputFingerprint?: boolean;
+}
+
+export function invalidateItemStates(ids: Array<string | number>) {
+  for (const id of ids) {
+    invalidatedItemIDs.add(String(id));
+  }
+}
+
+export function getStoredState(
+  item: Zotero.Item,
+  options: GetStoredStateOptions = {},
+): ItemRankState | undefined {
   const state = loadStore().items[getItemKey(item)];
   if (!state) return undefined;
   if (state.source === "manual") return state;
+  if (invalidatedItemIDs.has(String(item.id))) return undefined;
+
+  const validateInputFingerprint = options.validateInputFingerprint !== false;
   if (
     state.catalogVersion === getCatalogVersion() &&
     state.matcherVersion === getMatcherVersion() &&
-    (!state.inputFingerprint ||
+    (!validateInputFingerprint ||
+      !state.inputFingerprint ||
       state.inputFingerprint === getItemInputFingerprint(item))
   ) {
     return state;
@@ -82,6 +95,7 @@ export function saveMatchResults(
   const matcherVersion = getMatcherVersion();
   for (const { item, result } of entries) {
     const itemKey = getItemKey(item);
+    invalidatedItemIDs.delete(String(item.id));
     store.items[itemKey] = {
       itemKey,
       status: result.status,
