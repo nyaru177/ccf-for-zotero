@@ -21,16 +21,16 @@
 ## 界面预览
 
 <p align="center">
-  <img src="assets/readme/list-and-menu.png" alt="Zotero 文献列表中的 CCF 和 CAS 列以及右键菜单" width="96%">
+  <img src="assets/readme/item-list.png" alt="Zotero 文献列表中的 CCF 和 CAS 分级列" width="49%"><img src="assets/readme/context-menu.png" alt="条目右键菜单中的 CCF/CAS 分级助手子菜单" width="49%">
 </p>
 
-<p align="center"><em>文献列表中的 CCF/CAS 分级列与统一右键菜单</em></p>
+<p align="center"><em>左：文献列表中的 CCF / CAS 分级徽章；右：条目右键菜单中的分级助手</em></p>
 
 <p align="center">
-  <img src="assets/readme/initialization-settings.png" alt="CCF CAS 初始化设置页" width="78%">
+  <img src="assets/readme/initialization-settings.png" alt="CCF/CAS 分级助手设置页与初始化任务" width="82%">
 </p>
 
-<p align="center"><em>从 Zotero 设置页选择范围、识别项目和缓存处理方式</em></p>
+<p align="center"><em>设置页：选择范围与识别项目，控制初始化与后台任务</em></p>
 
 ## 功能
 
